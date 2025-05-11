@@ -43,4 +43,11 @@ suite('json stream lexer', () => {
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 2 },
     ]);
   });
+
+  test('split in three', () => {
+    const tokens = lex(['"', 'a', '"']);
+    assert.deepEqual(tokens, [
+      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
+    ]);
+  });
 });

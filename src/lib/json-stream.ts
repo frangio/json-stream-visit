@@ -29,13 +29,15 @@ const JSON_TOKEN_TYPE_MAP: Record<string, JsonTokenType> = {
 };
 
 export function lexer(): (chunk?: string) => JsonToken[] {
-  let chunkIndex = 0;
+  let chunkIndex = -1;
 
   let pending = JSON_STRING_CONT;
   let pendingStart = 0;
   let pendingToken: JsonToken | undefined;
 
   return function (chunk?: string): JsonToken[] {
+    chunkIndex += 1;
+
     let tokens: JsonToken[] = [];
 
     if (chunk === undefined) {
@@ -65,13 +67,12 @@ export function lexer(): (chunk?: string) => JsonToken[] {
 
       if (endIndex === chunk.length && lastSymbol !== '"') {
         pendingStart = lastSymbol === '\\' ? 1 : 0;
-        return tokens;
       } else {
         tokens.push(pendingToken);
         pendingToken = undefined;
-
-        JSON_TOKEN_PREFIX.lastIndex = endIndex;
       }
+
+      JSON_TOKEN_PREFIX.lastIndex = endIndex;
     }
 
     while (JSON_TOKEN_PREFIX.lastIndex < chunk.length) {
@@ -120,8 +121,6 @@ export function lexer(): (chunk?: string) => JsonToken[] {
         }
       }
     }
-
-    chunkIndex += 1;
 
     return tokens;
   }
