@@ -42,6 +42,11 @@ suite('json stream lexer', () => {
     assert.deepEqual(lex(['"\\', '""']), [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 2 },
     ]);
+
+    assert.deepEqual(lex(['"\\', '\\', '",']), [
+      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
+      { type: 'value-separator', startChunk: 2, startIndex: 1, endChunk: 2, endIndex: 2 },
+    ]);
   });
 
   test('split in three', () => {
@@ -49,5 +54,10 @@ suite('json stream lexer', () => {
     assert.deepEqual(tokens, [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
     ]);
+  });
+
+  test('empty', () => {
+    const tokens = lex([' ']);
+    assert.deepEqual(tokens, []);
   });
 });
