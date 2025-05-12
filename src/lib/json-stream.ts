@@ -1,4 +1,4 @@
-// The tokens identified by the lexer are a generalization of JSON tokens that
+// The tokens identified by the scanner are a generalization of JSON tokens that
 // includes atom-looking sequences such as `1.2.3`, `foo`, and `"\xZZ"`. Tokens
 // other than atoms are recognized exactly. This approximation is sufficient
 // because we're interested in detecting token boundaries and assume the atoms
@@ -44,7 +44,7 @@ const JSON_TOKEN_TYPE_MAP: Record<string, JsonTokenType> = {
 // whole. As explained above, tokens are not exactly JSON tokens and must be
 // processed by a JSON parser to recognize lexical errors. Invoking the
 // tokenizer without a chunk signals the end of the stream.
-export function lexer(): (chunk?: string) => JsonToken[] {
+export function scanner(): (chunk?: string) => JsonToken[] {
   // Will track the position of each chunk in the stream counting from 0.
   let chunkIndex = -1;
 
@@ -159,8 +159,8 @@ export interface BufferedJsonTokenStream extends AsyncIterableIterator<JsonToken
   drain(): string;
 }
 
-export function bufferedLex(stream: AsyncIterable<string>): BufferedJsonTokenStream {
-  let lex = lexer();
+export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenStream {
+  let scan = scanner();
   let buffer: string[] = [];
   let chunk = '';
   let startIndex = 0;
@@ -169,7 +169,7 @@ export function bufferedLex(stream: AsyncIterable<string>): BufferedJsonTokenStr
   let tokenStream = (async function* () {
     for await (chunk of stream) {
       startIndex = endIndex = 0;
-      for (let token of lex(chunk)) {
+      for (let token of scan(chunk)) {
         endIndex = token.endIndex;
         yield token.type;
       }
@@ -179,7 +179,7 @@ export function bufferedLex(stream: AsyncIterable<string>): BufferedJsonTokenStr
       startIndex = endIndex;
     }
 
-    for (let token of lex()) {
+    for (let token of scan()) {
       yield token.type;
     }
   })();

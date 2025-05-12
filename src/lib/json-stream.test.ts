@@ -1,10 +1,10 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
-import { lexer, bufferedLex, type JsonToken } from './json-stream.ts';
+import { scanner, bufferedScan, type JsonToken } from './json-stream.ts';
 
-function lex(chunks: string[]): JsonToken[] {
-  let lex = lexer();
-  return [...chunks, undefined].flatMap(chunk => lex(chunk));
+function scan(chunks: string[]): JsonToken[] {
+  let scan = scanner();
+  return [...chunks, undefined].flatMap(chunk => scan(chunk));
 }
 
 async function* generate<T>(items: T[]): AsyncGenerator<T> {
@@ -22,9 +22,9 @@ async function take<T>(iter: AsyncIterator<T>, count?: number): Promise<T[]> {
   return res;
 }
 
-suite('json stream lexer', () => {
+suite('json stream scanner', () => {
   test('simple JSON object', () => {
-    const tokens = lex(['{"key":', ' "value"}']);
+    const tokens = scan(['{"key":', ' "value"}']);
     assert.deepEqual(tokens, [
       { type: 'begin-object', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 1 },
       { type: 'atom', startChunk: 0, startIndex: 1, endChunk: 0, endIndex: 6 },
@@ -35,14 +35,14 @@ suite('json stream lexer', () => {
   });
 
   test('split string', () => {
-    const tokens = lex(['"Hello', ' World"']);
+    const tokens = scan(['"Hello', ' World"']);
     assert.deepEqual(tokens, [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 7 },
     ]);
   });
 
   test('lone quotes', () => {
-    const tokens = lex(['"', '" "', '"']);
+    const tokens = scan(['"', '" "', '"']);
     assert.deepEqual(tokens, [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 1 },
       { type: 'atom', startChunk: 1, startIndex: 2, endChunk: 2, endIndex: 1 },
@@ -50,34 +50,34 @@ suite('json stream lexer', () => {
   });
 
   test('escapes', () => {
-    assert.deepEqual(lex(['"\\""']), [
+    assert.deepEqual(scan(['"\\""']), [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 4 },
     ]);
 
-    assert.deepEqual(lex(['"\\', '""']), [
+    assert.deepEqual(scan(['"\\', '""']), [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 2 },
     ]);
 
-    assert.deepEqual(lex(['"\\', '\\', '",']), [
+    assert.deepEqual(scan(['"\\', '\\', '",']), [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
       { type: 'value-separator', startChunk: 2, startIndex: 1, endChunk: 2, endIndex: 2 },
     ]);
   });
 
   test('split in three', () => {
-    const tokens = lex(['"', 'a', '"']);
+    const tokens = scan(['"', 'a', '"']);
     assert.deepEqual(tokens, [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
     ]);
   });
 
   test('empty', () => {
-    const tokens = lex([' ']);
+    const tokens = scan([' ']);
     assert.deepEqual(tokens, []);
   });
 
   test('one two', () => {
-    const tokens = lex(['1 2']);
+    const tokens = scan(['1 2']);
     assert.deepEqual(tokens, [
       { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 1 },
       { type: 'atom', startChunk: 0, startIndex: 2, endChunk: 0, endIndex: 3 },
@@ -88,7 +88,7 @@ suite('json stream lexer', () => {
 suite('buffered json token stream', () => {
   test('basic buffering and draining', async () => {
     const chunks = ['{"key":', ' "value"}'];
-    const stream = bufferedLex(generate(chunks));
+    const stream = bufferedScan(generate(chunks));
 
     const tokens = await take(stream);
 
@@ -105,7 +105,7 @@ suite('buffered json token stream', () => {
 
   test('reset clears buffer', async () => {
     const chunks = ['1 2'];
-    const stream = bufferedLex(generate(chunks));
+    const stream = bufferedScan(generate(chunks));
 
     const one = await take(stream, 1);
     assert.deepEqual(one, ['atom']);
