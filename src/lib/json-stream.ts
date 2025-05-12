@@ -153,3 +153,47 @@ export function lexer(): (chunk?: string) => JsonToken[] {
     return tokens;
   }
 }
+
+export interface BufferedJsonTokenStream extends AsyncIterableIterator<JsonTokenType> {
+  reset(): void;
+  drain(): string;
+}
+
+export function bufferedLex(stream: AsyncIterable<string>): BufferedJsonTokenStream {
+  let lex = lexer();
+  let buffer: string[] = [];
+  let chunk = '';
+  let startIndex = 0;
+  let endIndex = 0;
+
+  let tokenStream = (async function* () {
+    for await (chunk of stream) {
+      startIndex = endIndex = 0;
+      for (let token of lex(chunk)) {
+        endIndex = token.endIndex;
+        yield token.type;
+      }
+      if (startIndex < chunk.length) {
+        buffer.push(chunk.slice(startIndex));
+      }
+      startIndex = endIndex;
+    }
+
+    for (let token of lex()) {
+      yield token.type;
+    }
+  })();
+
+  function reset(): void {
+    buffer.length = 0;
+    startIndex = endIndex;
+  }
+
+  function drain(): string {
+    let res = ''.concat(...buffer, chunk.slice(startIndex, endIndex));
+    reset();
+    return res;
+  }
+
+  return Object.assign(tokenStream, { reset, drain });
+}
