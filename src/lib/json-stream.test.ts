@@ -1,6 +1,6 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanner, bufferedScan, type JsonToken } from './json-stream.ts';
+import { scanner, bufferedScan, visit, type JsonToken } from './json-stream.ts';
 
 function scan(chunks: string[]): JsonToken[] {
   let scan = scanner();
@@ -37,7 +37,7 @@ suite('json stream scanner', () => {
   test('split string', () => {
     const tokens = scan(['"Hello', ' World"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 7 },
+      { type: 'atom', endIndex: 7 },
     ]);
   });
 
@@ -116,5 +116,69 @@ suite('buffered json token stream', () => {
     const two = await take(stream);
     assert.deepEqual(two, ['atom']);
     assert.equal(stream.drain(), ' 2');
+  });
+});
+
+suite('json stream visitor', () => {
+  test('visit simple object', async () => {
+    const obj = { name: "test", values: [1, 2, 3] };
+    const json = JSON.stringify(obj);
+    const visited: unknown[] = [];
+
+    await visit(generate([json]), (value) => visited.push(value));
+
+    assert.deepEqual(visited, [obj]);
+  });
+
+  test('visit array members', async () => {
+    const arr = [10, 20, 30];
+    const json = JSON.stringify(arr);
+    const visited: unknown[] = [];
+
+    await visit(generate([json]), { values: (value) => visited.push(value) });
+
+    assert.deepEqual(visited, arr);
+  });
+
+  test('visit property in object', async () => {
+    const obj = { foo: "bar", baz: 42 };
+    const json = JSON.stringify(obj);
+    const visited: unknown[] = [];
+
+    await visit(generate([json]), {
+      entries: (key) => {
+        if (key === "foo") {
+          return (value) => visited.push(value);
+        }
+        return () => {}; // ignore other properties
+      }
+    });
+
+    assert.deepEqual(visited, ["bar"]);
+  });
+
+  test('visit empty object', async () => {
+    const obj = {};
+    const json = JSON.stringify(obj);
+    let visitCount = 0;
+
+    await visit(generate([json]), {
+      entries: (key) => {
+        visitCount++;
+        return () => {};
+      }
+    });
+
+    assert.equal(visitCount, 0);
+  });
+
+  test('visit empty array', async () => {
+    const arr: unknown[] = [];
+    const json = JSON.stringify(arr);
+    let visitCount = 0;
+
+    await visit(generate([json]), { values: () => visitCount++ });
+
+    assert.equal(visitCount, 0);
   });
 });

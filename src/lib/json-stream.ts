@@ -135,11 +135,9 @@ export function scanner(): (chunk?: string) => JsonToken[] {
             pendingCont = JSON_NS_ATOM_CONT;
             break;
           }
-        }
 
-        default: {
+        default:
           tokens.push(token);
-        }
       }
     }
 
@@ -159,7 +157,7 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
   let startIndex = 0;
   let endIndex = 0;
 
-  let tokenStream = (async function* () {
+  let tokens = (async function* () {
     for await (chunk of stream) {
       startIndex = endIndex = 0;
       for (let token of scan(chunk)) {
@@ -188,5 +186,117 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
     return res;
   }
 
-  return Object.assign(tokenStream, { reset, drain });
+  return Object.assign(tokens, { reset, drain });
+}
+
+type Visitor =
+  | ((value: unknown) => void)
+  | { entries: (key: string) => Visitor }
+  | { values: Visitor };
+
+export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
+  let stack: [Visitor, JsonTokenType | undefined][] = [];
+  let currVisitor = visitor;
+  let prevMarker: JsonTokenType | undefined;
+
+  let depth = 0;
+
+  let tokens = bufferedScan(stream);
+
+  for await (let token of tokens) {
+    if (typeof currVisitor === 'function') {
+      switch (token) {
+        case 'begin-object':
+        case 'begin-array':
+          depth += 1;
+          break;
+
+        case 'end-object':
+        case 'end-array':
+          depth -= 1;
+          if (depth < 0) throw Error('todo');
+          break;
+      }
+
+      if (depth === 0) {
+        currVisitor(JSON.parse(tokens.drain()));
+      } else {
+        continue;
+      }
+    } else if ('values' in currVisitor) {
+      switch (token) {
+        case 'begin-array':
+          if (prevMarker !== undefined) throw Error('todo');
+          break;
+
+        case 'end-array':
+        case 'value-separator':
+          if (prevMarker !== 'begin-array' && prevMarker !== 'value-separator') throw Error('todo');
+          break;
+
+        default:
+          throw Error('todo');
+      }
+
+      tokens.reset();
+
+      if (token === 'begin-array' || token === 'value-separator') {
+        stack.push([currVisitor, token]);
+        currVisitor = currVisitor.values;
+        prevMarker = undefined;
+        continue;
+      }
+    } else if ('entries' in currVisitor) {
+      switch (token) {
+        case 'begin-object':
+          if (prevMarker !== undefined) throw Error('todo');
+          break;
+
+        case 'end-object':
+        case 'atom':
+          if (prevMarker !== 'begin-object' && prevMarker !== 'value-separator') throw Error('todo');
+          break;
+
+        case 'name-separator':
+          if (prevMarker !== 'atom') throw Error(`todo ${prevMarker}`);
+          break;
+
+        case 'value-separator':
+          if (prevMarker !== 'name-separator') throw Error('todo');
+          break;
+
+        default:
+          throw Error('todo');
+      }
+
+      prevMarker = token;
+
+      if (token === 'atom') {
+        let key = JSON.parse(tokens.drain());
+        stack.push([currVisitor.entries(key), undefined]);
+        continue;
+      } else {
+        tokens.reset();
+
+        switch (token) {
+          case 'end-object':
+            break;
+
+          case 'name-separator':
+            [currVisitor, prevMarker] = stack.pop()!;
+            continue;
+
+          default:
+            continue;
+        }
+      }
+    }
+
+    let next = stack.pop();
+    if (next === undefined) {
+      break;
+    } else {
+      [currVisitor, prevMarker] = next;
+    }
+  }
 }
