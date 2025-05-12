@@ -26,11 +26,11 @@ suite('json stream scanner', () => {
   test('simple JSON object', () => {
     const tokens = scan(['{"key":', ' "value"}']);
     assert.deepEqual(tokens, [
-      { type: 'begin-object', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 1 },
-      { type: 'atom', startChunk: 0, startIndex: 1, endChunk: 0, endIndex: 6 },
-      { type: 'name-separator', startChunk: 0, startIndex: 6, endChunk: 0, endIndex: 7 },
-      { type: 'atom', startChunk: 1, startIndex: 1, endChunk: 1, endIndex: 8 },
-      { type: 'end-object', startChunk: 1, startIndex: 8, endChunk: 1, endIndex: 9 },
+      { type: 'begin-object', endIndex: 1 },
+      { type: 'atom', endIndex: 6 },
+      { type: 'name-separator', endIndex: 7 },
+      { type: 'atom', endIndex: 8 },
+      { type: 'end-object', endIndex: 9 },
     ]);
   });
 
@@ -44,30 +44,30 @@ suite('json stream scanner', () => {
   test('lone quotes', () => {
     const tokens = scan(['"', '" "', '"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 1 },
-      { type: 'atom', startChunk: 1, startIndex: 2, endChunk: 2, endIndex: 1 },
+      { type: 'atom', endIndex: 1 },
+      { type: 'atom', endIndex: 1 },
     ]);
   });
 
   test('escapes', () => {
     assert.deepEqual(scan(['"\\""']), [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 4 },
+      { type: 'atom', endIndex: 4 },
     ]);
 
     assert.deepEqual(scan(['"\\', '""']), [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 1, endIndex: 2 },
+      { type: 'atom', endIndex: 2 },
     ]);
 
     assert.deepEqual(scan(['"\\', '\\', '",']), [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
-      { type: 'value-separator', startChunk: 2, startIndex: 1, endChunk: 2, endIndex: 2 },
+      { type: 'atom', endIndex: 1 },
+      { type: 'value-separator', endIndex: 2 },
     ]);
   });
 
   test('split in three', () => {
     const tokens = scan(['"', 'a', '"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 2, endIndex: 1 },
+      { type: 'atom', endIndex: 1 },
     ]);
   });
 
@@ -79,8 +79,8 @@ suite('json stream scanner', () => {
   test('one two', () => {
     const tokens = scan(['1 2']);
     assert.deepEqual(tokens, [
-      { type: 'atom', startChunk: 0, startIndex: 0, endChunk: 0, endIndex: 1 },
-      { type: 'atom', startChunk: 0, startIndex: 2, endChunk: 0, endIndex: 3 },
+      { type: 'atom', endIndex: 1 },
+      { type: 'atom', endIndex: 3 },
     ]);
   });
 });

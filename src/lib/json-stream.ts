@@ -20,14 +20,6 @@ export type JsonTokenType =
   | 'name-separator'
   | 'atom'; // strings, numbers, booleans, null
 
-export interface JsonToken {
-  type: JsonTokenType;
-  startChunk: number;
-  startIndex: number;
-  endChunk: number;
-  endIndex: number;
-}
-
 const JSON_TOKEN_TYPE_MAP: Record<string, JsonTokenType> = {
   '{': 'begin-object',
   '}': 'end-object',
@@ -36,6 +28,11 @@ const JSON_TOKEN_TYPE_MAP: Record<string, JsonTokenType> = {
   ',': 'value-separator',
   ':': 'name-separator',
 };
+
+export interface JsonToken {
+  type: JsonTokenType;
+  endIndex: number;
+}
 
 // Instantiates a streaming JSON tokenizer: a stateful function that processes
 // a chunk of JSON at a time and returns an array of the new tokens it's
@@ -83,7 +80,6 @@ export function scanner(): (chunk?: string) => JsonToken[] {
       let endIndex = pendingCont.lastIndex;
       let lastSymbol = endIndex > pendingSkip ? chunk[endIndex - 1] : undefined;
 
-      pendingToken.endChunk = chunkIndex;
       pendingToken.endIndex = endIndex;
 
       if (endIndex === chunk.length && lastSymbol !== '"') {
@@ -111,14 +107,11 @@ export function scanner(): (chunk?: string) => JsonToken[] {
       let type = JSON_TOKEN_TYPE_MAP[symbol] ?? 'atom';
       let token = {
         type,
-        startChunk: chunkIndex,
-        startIndex,
-        endChunk: chunkIndex,
         endIndex,
       };
 
       switch (type) {
-        case 'atom': {
+        case 'atom':
           // An atom prefix may continue in the next chunk if it's an unclosed
           // string or if it's an undelimited atom (like a number) at the end
           // of the chunk. Otherwise the token is complete and we fall through
