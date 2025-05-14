@@ -86,36 +86,45 @@ suite('json stream scanner', () => {
 });
 
 suite('buffered json token stream', () => {
-  test('basic buffering and draining', async () => {
-    const chunks = ['{"key":', ' "value"}'];
+  test('token flush', async () => {
+    const chunks = ['"foobar"'];
     const stream = bufferedScan(generate(chunks));
-
-    const tokens = await take(stream);
-
-    assert.deepEqual(tokens, [
-      'begin-object',
-      'atom',
-      'name-separator',
-      'atom',
-      'end-object',
-    ]);
-
-    assert.equal(stream.drain(), '{"key": "value"}');
+    await take(stream, 1);
+    assert.equal(stream.flush(), '"foobar"');
   });
 
-  test('reset clears buffer', async () => {
-    const chunks = ['1 2'];
+  test('multi-token buffered flush', async () => {
+    const chunks = ['"foo" "bar" "baz"'];
+    const stream = bufferedScan(generate(chunks));
+    stream.buffer();
+
+    const tokens = await take(stream, 2);
+    assert.deepEqual(tokens, ['atom', 'atom']);
+    assert.equal(stream.flush(), '"foo" "bar"');
+  });
+
+  test('multi-chunk flush', async () => {
+    const chunks = ['"foo', 'bar"'];
+    const stream = bufferedScan(generate(chunks));
+    await take(stream, 1);
+    assert.equal(stream.flush(), '"foobar"');
+  });
+
+  test('multi-chunk multi-token buffered flush', async () => {
+    const chunks = ['{"foo":', '"bar"}'];
+    const stream = bufferedScan(generate(chunks));
+    stream.buffer();
+    await take(stream, 5);
+    assert.equal(stream.flush(), '{"foo":"bar"}');
+  });
+
+  test('non-buffered token flush', async () => {
+    const chunks = ['"foo" "bar" "baz"'];
     const stream = bufferedScan(generate(chunks));
 
-    const one = await take(stream, 1);
-    assert.deepEqual(one, ['atom']);
-
-    stream.reset();
-    assert.equal(stream.drain(), '');
-
-    const two = await take(stream);
-    assert.deepEqual(two, ['atom']);
-    assert.equal(stream.drain(), ' 2');
+    const tokens = await take(stream, 2);
+    assert.deepEqual(tokens, ['atom', 'atom']);
+    assert.equal(stream.flush(), ' "bar"');
   });
 });
 
@@ -163,7 +172,7 @@ suite('json stream visitor', () => {
     let visitCount = 0;
 
     await visit(generate([json]), {
-      entries: (key) => {
+      entries: () => {
         visitCount++;
         return () => {};
       }

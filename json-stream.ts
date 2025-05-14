@@ -141,28 +141,34 @@ export function scanner(): (chunk?: string) => JsonToken[] {
 }
 
 export interface BufferedJsonTokenStream extends AsyncIterableIterator<JsonTokenType> {
-  reset(): void;
-  drain(): string;
+  buffer(): void;
+  flush(): string;
 }
 
 export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenStream {
   let scan = scanner();
-  let buffer: string[] = [];
-  let chunk = '';
+
+  let buffering = false;
+  let bufferedChunks: string[] = [];
+  let currentChunk = '';
   let startIndex = 0;
   let endIndex = 0;
 
   let tokens = (async function* () {
-    for await (chunk of stream) {
+    for await (currentChunk of stream) {
       startIndex = endIndex = 0;
-      for (let token of scan(chunk)) {
+      for (let token of scan(currentChunk)) {
         endIndex = token.endIndex;
         yield token.type;
+        if (!buffering) {
+          startIndex = endIndex;
+          bufferedChunks.length = 0;
+        }
       }
-      if (startIndex < chunk.length) {
-        buffer.push(chunk.slice(startIndex));
+      if (startIndex < currentChunk.length) {
+        bufferedChunks.push(currentChunk.slice(startIndex));
+        startIndex = currentChunk.length;
       }
-      startIndex = endIndex;
     }
 
     for (let token of scan()) {
@@ -170,18 +176,16 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
     }
   })();
 
-  function reset(): void {
-    buffer.length = 0;
-    startIndex = endIndex;
+  function buffer(): void {
+    buffering = true;
   }
 
-  function drain(): string {
-    let res = ''.concat(...buffer, chunk.slice(startIndex, endIndex));
-    reset();
-    return res;
+  function flush(): string {
+    buffering = false;
+    return ''.concat(...bufferedChunks, currentChunk.slice(startIndex, endIndex));
   }
 
-  return Object.assign(tokens, { reset, drain });
+  return Object.assign(tokens, { buffer, flush });
 }
 
 type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
@@ -248,6 +252,10 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
 
     switch (state.id) {
       case VisitStateId.ValueBuffering:
+        if (depth === 0) {
+          tokens.buffer();
+        }
+
         switch (token) {
           case 'begin-object':
           case 'begin-array':
@@ -262,7 +270,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         }
 
         if (depth === 0) {
-          state.value(JSON.parse(tokens.drain()));
+          state.value(JSON.parse(tokens.flush()));
           stack.pop();
         }
 
@@ -305,7 +313,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
       case VisitStateId.ObjectPreKey: {
         if (token !== 'atom') throw Error('todo');
         state.id = VisitStateId.ObjectPostValue;
-        let key: string = JSON.parse(tokens.drain());
+        let key: string = JSON.parse(tokens.flush());
         stack.push({
           id: VisitStateId.ObjectPostKey,
           value: state_from_visitor(state.value(key)),
@@ -333,10 +341,6 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
             throw Error('todo');
         }
         break;
-    }
-
-    if (state.id !== VisitStateId.ValueBuffering) {
-      tokens.reset();
     }
   }
 }
