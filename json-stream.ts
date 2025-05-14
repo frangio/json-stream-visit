@@ -188,7 +188,7 @@ type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
 type ValueVisitor = (value: unknown) => void;
 type ObjectVisitor = (key: string) => Visitor;
 
-const enum VisitState {
+const enum VisitStateId {
   ValueBuffering,
   ArrayPreBegin,
   ArrayPostBegin,
@@ -201,27 +201,32 @@ const enum VisitState {
   ObjectPreKey,
 }
 
-type TaggedVisitor =
-  | [VisitState.ValueBuffering, ValueVisitor]
-  | [VisitState.ArrayPreBegin, Visitor]
-  | [VisitState.ArrayPostBegin | VisitState.ArrayPostValue | VisitState.ArrayPreEnd, TaggedVisitor]
-  | [VisitState.ObjectPreBegin | VisitState.ObjectPostBegin | VisitState.ObjectPreKey | VisitState.ObjectPostValue, ObjectVisitor]
-  | [VisitState.ObjectPostKey, TaggedVisitor];
+type VisitState =
+  | { id: VisitStateId.ValueBuffering;
+      value: ValueVisitor; }
+  | { id: VisitStateId.ArrayPreBegin;
+      value: Visitor; }
+  | { id: VisitStateId.ArrayPostBegin | VisitStateId.ArrayPostValue | VisitStateId.ArrayPreEnd;
+      value: VisitState; }
+  | { id: VisitStateId.ObjectPreBegin | VisitStateId.ObjectPostBegin | VisitStateId.ObjectPreKey | VisitStateId.ObjectPostValue;
+      value: ObjectVisitor; }
+  | { id: VisitStateId.ObjectPostKey;
+      value: VisitState; };
 
-function tag(visitor: Visitor): TaggedVisitor {
+function state_from_visitor(visitor: Visitor): VisitState {
   if (typeof visitor === 'function') {
-    return [VisitState.ValueBuffering, visitor];
+    return { id: VisitStateId.ValueBuffering, value: visitor };
   } else if ('values' in visitor) {
-    return [VisitState.ArrayPreBegin, visitor.values];
+    return { id: VisitStateId.ArrayPreBegin, value: visitor.values };
   } else if ('entries' in visitor) {
-    return [VisitState.ObjectPreBegin, visitor.entries];
+    return { id: VisitStateId.ObjectPreBegin, value: visitor.entries };
   } else {
     throw Error('todo');
   }
 }
 
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
-  let stack: TaggedVisitor[] = [tag(visitor)];
+  let stack: VisitState[] = [state_from_visitor(visitor)];
   let depth = 0;
 
   let tokens = bufferedScan(stream);
@@ -229,20 +234,20 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
   for await (let token of tokens) {
     if (stack.length === 0) break;
 
-    let tvisitor = stack.at(-1)!;
+    let state = stack.at(-1)!;
 
-    if (tvisitor[0] === VisitState.ArrayPostBegin) {
+    if (state.id === VisitStateId.ArrayPostBegin) {
       if (token === 'end-array') {
-        tvisitor[0] = VisitState.ArrayPreEnd;
+        state.id = VisitStateId.ArrayPreEnd;
       } else {
-        tvisitor[0] = VisitState.ArrayPostValue;
-        stack.push(tvisitor[1]);
-        tvisitor = tvisitor[1];
+        state.id = VisitStateId.ArrayPostValue;
+        stack.push(state.value);
+        state = state.value;
       }
     }
 
-    switch (tvisitor[0]) {
-      case VisitState.ValueBuffering:
+    switch (state.id) {
+      case VisitStateId.ValueBuffering:
         switch (token) {
           case 'begin-object':
           case 'begin-array':
@@ -257,65 +262,71 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         }
 
         if (depth === 0) {
-          tvisitor[1](JSON.parse(tokens.drain()));
+          state.value(JSON.parse(tokens.drain()));
           stack.pop();
         }
 
         break;
 
-      case VisitState.ArrayPreBegin:
+      case VisitStateId.ArrayPreBegin:
         if (token !== 'begin-array') throw Error('todo');
         stack.pop();
-        stack.push([VisitState.ArrayPostBegin, tag(tvisitor[1])]);
+        stack.push({
+          id: VisitStateId.ArrayPostBegin,
+          value: state_from_visitor(state.value),
+        });
         break;
 
-      case VisitState.ArrayPostValue:
+      case VisitStateId.ArrayPostValue:
         if (token !== 'end-array') {
           if (token !== 'value-separator') throw Error('todo');
-          stack.push(tvisitor[1]);
+          stack.push(state.value);
           break;
         }
         // Fall through
 
-      case VisitState.ArrayPreEnd:
+      case VisitStateId.ArrayPreEnd:
         // We can assume that token === 'end-array'.
         stack.pop();
         break;
 
-      case VisitState.ObjectPreBegin:
+      case VisitStateId.ObjectPreBegin:
         if (token !== 'begin-object') throw Error('todo');
-        tvisitor[0] = VisitState.ObjectPostBegin;
+        state.id = VisitStateId.ObjectPostBegin;
         break;
 
-      case VisitState.ObjectPostBegin:
+      case VisitStateId.ObjectPostBegin:
         if (token === 'end-object') {
           stack.pop();
           break;
         }
         // Fall through
 
-      case VisitState.ObjectPreKey: {
+      case VisitStateId.ObjectPreKey: {
         if (token !== 'atom') throw Error('todo');
-        tvisitor[0] = VisitState.ObjectPostValue;
+        state.id = VisitStateId.ObjectPostValue;
         let key: string = JSON.parse(tokens.drain());
-        stack.push([VisitState.ObjectPostKey, tag(tvisitor[1](key))]);
+        stack.push({
+          id: VisitStateId.ObjectPostKey,
+          value: state_from_visitor(state.value(key)),
+        });
         break;
       }
 
-      case VisitState.ObjectPostKey:
+      case VisitStateId.ObjectPostKey:
         if (token !== 'name-separator') throw Error('todo');
         stack.pop();
-        stack.push(tvisitor[1]);
+        stack.push(state.value);
         break;
 
-      case VisitState.ObjectPostValue:
+      case VisitStateId.ObjectPostValue:
         switch (token) {
           case 'end-object':
             stack.pop();
             break;
 
           case 'value-separator':
-            tvisitor[0] = VisitState.ObjectPreKey;
+            state.id = VisitStateId.ObjectPreKey;
             break;
 
           default:
@@ -324,7 +335,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         break;
     }
 
-    if (tvisitor[0] !== VisitState.ValueBuffering) {
+    if (state.id !== VisitStateId.ValueBuffering) {
       tokens.reset();
     }
   }
