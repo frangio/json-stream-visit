@@ -105,40 +105,35 @@ export function scanner(): (chunk?: string) => JsonToken[] {
 
       let symbol = chunk[startIndex]!;
       let type = JSON_TOKEN_TYPE_MAP[symbol] ?? 'atom';
-      let token = {
-        type,
-        endIndex,
-      };
+      let token = { type, endIndex };
 
-      switch (type) {
-        case 'atom':
-          // An atom prefix may continue in the next chunk if it's an unclosed
-          // string or if it's an undelimited atom (like a number) at the end
-          // of the chunk. Otherwise the token is complete and we fall through
-          // to the default case.
-          if (symbol === '"') {
-            let lastSymbol = chunk[endIndex - 1]!;
-            // A quote symbol at the end of the match may be the opening quote
-            // if the match is a single character, in which case the token is
-            // not complete.
-            if (lastSymbol !== '"' || endIndex === startIndex + 1) {
-              pendingToken = token;
-              pendingSkip = lastSymbol === '\\' ? 1 : 0;
-              pendingCont = JSON_STRING_CONT;
-              break;
-            }
-          } else if (endIndex === chunk.length) {
-            // Non-string atoms at the end of a chunk can never be considered
-            // complete.
+      if (type === 'atom') {
+        // An atom prefix may continue in the next chunk if it's an unclosed
+        // string or if it's an undelimited atom (like a number) at the end of
+        // the chunk.
+        if (symbol === '"') {
+          let lastSymbol = chunk[endIndex - 1]!;
+          // A quote symbol at the end of the match may be the opening quote if
+          // the match is a single character, in which case the token is not
+          // complete.
+          if (lastSymbol !== '"' || endIndex === startIndex + 1) {
             pendingToken = token;
-            pendingSkip = 0;
-            pendingCont = JSON_NS_ATOM_CONT;
-            break;
+            pendingSkip = lastSymbol === '\\' ? 1 : 0;
+            pendingCont = JSON_STRING_CONT;
+            continue;
           }
-
-        default:
-          tokens.push(token);
+        } else if (endIndex === chunk.length) {
+          // Non-string atoms at the end of a chunk can never be considered
+          // complete.
+          pendingToken = token;
+          pendingSkip = 0;
+          pendingCont = JSON_NS_ATOM_CONT;
+          continue;
+        }
+        // Otherwise the token is complete.
       }
+
+      tokens.push(token);
     }
 
     return tokens;
