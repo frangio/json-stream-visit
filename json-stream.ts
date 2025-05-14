@@ -184,114 +184,148 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
   return Object.assign(tokens, { reset, drain });
 }
 
-type Visitor =
-  | ((value: unknown) => void)
-  | { entries: (key: string) => Visitor }
-  | { values: Visitor };
+type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
+type ValueVisitor = (value: unknown) => void;
+type ObjectVisitor = (key: string) => Visitor;
+
+const enum VisitState {
+  ValueBuffering,
+  ArrayPreBegin,
+  ArrayPostBegin,
+  ArrayPostValue,
+  ArrayPreEnd,
+  ObjectPreBegin,
+  ObjectPostBegin,
+  ObjectPostKey,
+  ObjectPostValue,
+  ObjectPreKey,
+}
+
+type TaggedVisitor =
+  | [VisitState.ValueBuffering, ValueVisitor]
+  | [VisitState.ArrayPreBegin, Visitor]
+  | [VisitState.ArrayPostBegin | VisitState.ArrayPostValue | VisitState.ArrayPreEnd, TaggedVisitor]
+  | [VisitState.ObjectPreBegin | VisitState.ObjectPostBegin | VisitState.ObjectPreKey | VisitState.ObjectPostValue, ObjectVisitor]
+  | [VisitState.ObjectPostKey, TaggedVisitor];
+
+function tag(visitor: Visitor): TaggedVisitor {
+  if (typeof visitor === 'function') {
+    return [VisitState.ValueBuffering, visitor];
+  } else if ('values' in visitor) {
+    return [VisitState.ArrayPreBegin, visitor.values];
+  } else if ('entries' in visitor) {
+    return [VisitState.ObjectPreBegin, visitor.entries];
+  } else {
+    throw Error('todo');
+  }
+}
 
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
-  let stack: [Visitor, JsonTokenType | undefined][] = [];
-  let currVisitor = visitor;
-  let prevMarker: JsonTokenType | undefined;
-
+  let stack: TaggedVisitor[] = [tag(visitor)];
   let depth = 0;
 
   let tokens = bufferedScan(stream);
 
   for await (let token of tokens) {
-    if (typeof currVisitor === 'function') {
-      switch (token) {
-        case 'begin-object':
-        case 'begin-array':
-          depth += 1;
-          break;
+    if (stack.length === 0) break;
 
-        case 'end-object':
-        case 'end-array':
-          depth -= 1;
-          if (depth < 0) throw Error('todo');
-          break;
-      }
+    let tvisitor = stack.at(-1)!;
 
-      if (depth === 0) {
-        currVisitor(JSON.parse(tokens.drain()));
+    if (tvisitor[0] === VisitState.ArrayPostBegin) {
+      if (token === 'end-array') {
+        tvisitor[0] = VisitState.ArrayPreEnd;
       } else {
-        continue;
-      }
-    } else if ('values' in currVisitor) {
-      switch (token) {
-        case 'begin-array':
-          if (prevMarker !== undefined) throw Error('todo');
-          break;
-
-        case 'end-array':
-        case 'value-separator':
-          if (prevMarker !== 'begin-array' && prevMarker !== 'value-separator') throw Error('todo');
-          break;
-
-        default:
-          throw Error('todo');
-      }
-
-      tokens.reset();
-
-      if (token === 'begin-array' || token === 'value-separator') {
-        stack.push([currVisitor, token]);
-        currVisitor = currVisitor.values;
-        prevMarker = undefined;
-        continue;
-      }
-    } else if ('entries' in currVisitor) {
-      switch (token) {
-        case 'begin-object':
-          if (prevMarker !== undefined) throw Error('todo');
-          break;
-
-        case 'end-object':
-        case 'atom':
-          if (prevMarker !== 'begin-object' && prevMarker !== 'value-separator') throw Error('todo');
-          break;
-
-        case 'name-separator':
-          if (prevMarker !== 'atom') throw Error(`todo ${prevMarker}`);
-          break;
-
-        case 'value-separator':
-          if (prevMarker !== 'name-separator') throw Error('todo');
-          break;
-
-        default:
-          throw Error('todo');
-      }
-
-      prevMarker = token;
-
-      if (token === 'atom') {
-        let key = JSON.parse(tokens.drain());
-        stack.push([currVisitor.entries(key), undefined]);
-        continue;
-      } else {
-        tokens.reset();
-
-        switch (token) {
-          case 'end-object':
-            break;
-
-          case 'name-separator':
-            [currVisitor, prevMarker] = stack.pop()!;
-            continue;
-
-          default:
-            continue;
-        }
+        tvisitor[0] = VisitState.ArrayPostValue;
+        stack.push(tvisitor[1]);
+        tvisitor = tvisitor[1];
       }
     }
 
-    let next = stack.pop();
-    if (next === undefined) {
-      break;
-    } else {
-      [currVisitor, prevMarker] = next;
+    switch (tvisitor[0]) {
+      case VisitState.ValueBuffering:
+        switch (token) {
+          case 'begin-object':
+          case 'begin-array':
+            depth += 1;
+            break;
+
+          case 'end-object':
+          case 'end-array':
+            depth -= 1;
+            if (depth < 0) throw Error('todo');
+            break;
+        }
+
+        if (depth === 0) {
+          tvisitor[1](JSON.parse(tokens.drain()));
+          stack.pop();
+        }
+
+        break;
+
+      case VisitState.ArrayPreBegin:
+        if (token !== 'begin-array') throw Error('todo');
+        stack.pop();
+        stack.push([VisitState.ArrayPostBegin, tag(tvisitor[1])]);
+        break;
+
+      case VisitState.ArrayPostValue:
+        if (token !== 'end-array') {
+          if (token !== 'value-separator') throw Error('todo');
+          stack.push(tvisitor[1]);
+          break;
+        }
+        // Fall through
+
+      case VisitState.ArrayPreEnd:
+        // We can assume that token === 'end-array'.
+        stack.pop();
+        break;
+
+      case VisitState.ObjectPreBegin:
+        if (token !== 'begin-object') throw Error('todo');
+        tvisitor[0] = VisitState.ObjectPostBegin;
+        break;
+
+      case VisitState.ObjectPostBegin:
+        if (token === 'end-object') {
+          stack.pop();
+          break;
+        }
+        // Fall through
+
+      case VisitState.ObjectPreKey: {
+        if (token !== 'atom') throw Error('todo');
+        tvisitor[0] = VisitState.ObjectPostValue;
+        let key: string = JSON.parse(tokens.drain());
+        stack.push([VisitState.ObjectPostKey, tag(tvisitor[1](key))]);
+        break;
+      }
+
+      case VisitState.ObjectPostKey:
+        if (token !== 'name-separator') throw Error('todo');
+        stack.pop();
+        stack.push(tvisitor[1]);
+        break;
+
+      case VisitState.ObjectPostValue:
+        switch (token) {
+          case 'end-object':
+            stack.pop();
+            break;
+
+          case 'value-separator':
+            tvisitor[0] = VisitState.ObjectPreKey;
+            break;
+
+          default:
+            throw Error('todo');
+        }
+        break;
+    }
+
+    if (tvisitor[0] !== VisitState.ValueBuffering) {
+      tokens.reset();
     }
   }
 }
