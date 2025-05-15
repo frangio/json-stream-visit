@@ -6,9 +6,9 @@
 
 // Optional whitespace followed by a token prefix (possibly empty). An empty
 // group is used to capture the index where the token starts.
-const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|$))*(")?|[^ \t\n\r{}\[\]:,"]*)/dy;
+const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|($)))*(")?|[^ \t\n\r{}\[\]:,"]*)/dy;
 
-const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|$))*(")?/y;
+const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|($)))*(")?/y;
 const JSON_NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
 
 export type JsonTokenType =
@@ -76,10 +76,10 @@ export function scanner(): (chunk?: string) => JsonToken[] {
       pendingCont.lastIndex = pendingSkip;
 
       let match = pendingCont.exec(chunk)!;
-      let stringClosed = match[1] !== undefined;
+      let stringHangingEscape = match[1] !== undefined;
+      let stringClosed = match[2] !== undefined;
 
       let endIndex = pendingCont.lastIndex;
-      let lastSymbol = endIndex > pendingSkip ? chunk[endIndex - 1] : undefined;
 
       pendingToken.endIndex = endIndex;
 
@@ -87,7 +87,7 @@ export function scanner(): (chunk?: string) => JsonToken[] {
         tokens.push(pendingToken);
         pendingToken = undefined;
       } else {
-        pendingSkip = lastSymbol === '\\' ? 1 : 0;
+        pendingSkip = stringHangingEscape ? 1 : 0;
       }
 
       JSON_TOKEN_PREFIX.lastIndex = endIndex;
@@ -113,11 +113,11 @@ export function scanner(): (chunk?: string) => JsonToken[] {
         // string or if it's an undelimited atom (like a number) at the end of
         // the chunk.
         if (symbol === '"') {
-          let closed = match[2] !== undefined;
+          let hangingEscape = match[2] !== undefined;
+          let closed = match[3] !== undefined;
           if (!closed) {
-            let lastSymbol = chunk[endIndex - 1]!;
             pendingToken = token;
-            pendingSkip = lastSymbol === '\\' ? 1 : 0;
+            pendingSkip = hangingEscape ? 1 : 0;
             pendingCont = JSON_STRING_CONT;
             continue;
           }

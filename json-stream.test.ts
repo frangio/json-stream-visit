@@ -42,13 +42,6 @@ suite('json stream scanner', () => {
     ]);
   });
 
-  test('split string with escaped quotes', () => {
-    const tokens = scan(['"\\"', '\\"', '"']);
-    assert.deepEqual(tokens, [
-      { type: 'atom', endIndex: 1 },
-    ]);
-  });
-
   test('lone quotes', () => {
     const tokens = scan(['"', '" "', '"']);
     assert.deepEqual(tokens, [
@@ -62,6 +55,10 @@ suite('json stream scanner', () => {
       { type: 'atom', endIndex: 4 },
     ]);
 
+    assert.deepEqual(scan(['"\\"', '\\"', '"']), [
+      { type: 'atom', endIndex: 1 },
+    ]);
+
     assert.deepEqual(scan(['"\\', '""']), [
       { type: 'atom', endIndex: 2 },
     ]);
@@ -69,6 +66,10 @@ suite('json stream scanner', () => {
     assert.deepEqual(scan(['"\\', '\\', '",']), [
       { type: 'atom', endIndex: 1 },
       { type: 'value-separator', endIndex: 2 },
+    ]);
+
+    assert.deepEqual(scan(['"\\\\', '"']), [
+      { type: 'atom', endIndex: 1 },
     ]);
   });
 
