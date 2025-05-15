@@ -167,7 +167,7 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
       }
       if (startIndex < currentChunk.length) {
         bufferedChunks.push(currentChunk.slice(startIndex));
-        startIndex = currentChunk.length;
+        startIndex = endIndex = currentChunk.length;
       }
     }
 
