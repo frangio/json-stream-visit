@@ -139,7 +139,7 @@ suite('buffered json token stream', () => {
 
 suite('json stream visitor', () => {
   test('visit simple object', async () => {
-    const obj = { name: "test", values: [1, 2, 3] };
+    const obj = { name: 'test', values: [1, 2, 3] };
     const json = JSON.stringify(obj);
     const visited: unknown[] = [];
 
@@ -159,20 +159,20 @@ suite('json stream visitor', () => {
   });
 
   test('visit property in object', async () => {
-    const obj = { foo: "bar", baz: 42 };
+    const obj = { foo: 'bar', baz: 42 };
     const json = JSON.stringify(obj);
     const visited: unknown[] = [];
 
     await visit(generate([json]), {
       entries: (key) => {
-        if (key === "foo") {
+        if (key === 'foo') {
           return (value) => visited.push(value);
         }
         return () => {}; // ignore other properties
-      }
+      },
     });
 
-    assert.deepEqual(visited, ["bar"]);
+    assert.deepEqual(visited, ['bar']);
   });
 
   test('visit empty object', async () => {
@@ -184,7 +184,7 @@ suite('json stream visitor', () => {
       entries: () => {
         visitCount++;
         return () => {};
-      }
+      },
     });
 
     assert.equal(visitCount, 0);
@@ -203,8 +203,8 @@ suite('json stream visitor', () => {
   test('random visitor on well-shaped input', async () => {
     type Shape =
       | { type: 'value' }
-      | { type: 'array', values: Shape }
-      | { type: 'object', entries: Record<string, Shape> };
+      | { type: 'array'; values: Shape }
+      | { type: 'object'; entries: Record<string, Shape> };
 
     const { shape } = fc.letrec<Record<string, Shape>>((tie) => ({
       value: fc.constant({ type: 'value' }),

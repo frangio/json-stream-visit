@@ -18,7 +18,7 @@ export const enum TokenType {
   EndArray,
   ValueSeparator,
   NameSeparator,
-  Atom // strings, numbers, booleans, null
+  Atom, // strings, numbers, booleans, null
 }
 
 const JSON_TOKEN_TYPE_MAP: Record<string, TokenType> = {
@@ -137,7 +137,7 @@ export function scanner(): (chunk?: string) => Token[] {
     }
 
     return tokens;
-  }
+  };
 }
 
 export interface BufferedJsonTokenStream extends AsyncIterableIterator<TokenType> {
@@ -206,16 +206,24 @@ const enum VisitStateId {
 }
 
 type VisitState =
-  | { id: VisitStateId.ValueBuffering;
-      value: ValueVisitor; }
-  | { id: VisitStateId.ArrayPreBegin;
-      value: Visitor; }
-  | { id: VisitStateId.ArrayPostBegin | VisitStateId.ArrayPostValue | VisitStateId.ArrayPreEnd;
-      value: VisitState; }
-  | { id: VisitStateId.ObjectPreBegin | VisitStateId.ObjectPostBegin | VisitStateId.ObjectPreKey | VisitStateId.ObjectPostValue;
-      value: ObjectVisitor; }
-  | { id: VisitStateId.ObjectPostKey;
-      value: VisitState; };
+  | { id: VisitStateId.ValueBuffering; value: ValueVisitor }
+  | { id: VisitStateId.ArrayPreBegin; value: Visitor }
+  | {
+      id:
+        | VisitStateId.ArrayPostBegin
+        | VisitStateId.ArrayPostValue
+        | VisitStateId.ArrayPreEnd;
+      value: VisitState;
+    }
+  | {
+      id:
+        | VisitStateId.ObjectPreBegin
+        | VisitStateId.ObjectPostBegin
+        | VisitStateId.ObjectPreKey
+        | VisitStateId.ObjectPostValue;
+      value: ObjectVisitor;
+    }
+  | { id: VisitStateId.ObjectPostKey; value: VisitState };
 
 function stateFromVisitor(visitor: Visitor): VisitState {
   if (typeof visitor === 'function') {
