@@ -1,9 +1,9 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
-import { scanner, bufferedScan, visit, type JsonToken, type Visitor } from './json-stream.ts';
+import { scanner, bufferedScan, visit, TokenType, type Token, type Visitor } from './json-stream.ts';
 
-function scan(chunks: string[]): JsonToken[] {
+function scan(chunks: string[]): Token[] {
   let scan = scanner();
   return [...chunks, undefined].flatMap(chunk => scan(chunk));
 }
@@ -27,56 +27,56 @@ suite('json stream scanner', () => {
   test('simple JSON object', () => {
     const tokens = scan(['{"key":', ' "value"}']);
     assert.deepEqual(tokens, [
-      { type: 'begin-object', endIndex: 1 },
-      { type: 'atom', endIndex: 6 },
-      { type: 'name-separator', endIndex: 7 },
-      { type: 'atom', endIndex: 8 },
-      { type: 'end-object', endIndex: 9 },
+      { type: TokenType.BeginObject, endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 6 },
+      { type: TokenType.NameSeparator, endIndex: 7 },
+      { type: TokenType.Atom, endIndex: 8 },
+      { type: TokenType.EndObject, endIndex: 9 },
     ]);
   });
 
   test('split string', () => {
     const tokens = scan(['"Hello', ' World"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', endIndex: 7 },
+      { type: TokenType.Atom, endIndex: 7 },
     ]);
   });
 
   test('lone quotes', () => {
     const tokens = scan(['"', '" "', '"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', endIndex: 1 },
-      { type: 'atom', endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 1 },
     ]);
   });
 
   test('escapes', () => {
     assert.deepEqual(scan(['"\\""']), [
-      { type: 'atom', endIndex: 4 },
+      { type: TokenType.Atom, endIndex: 4 },
     ]);
 
     assert.deepEqual(scan(['"\\"', '\\"', '"']), [
-      { type: 'atom', endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 1 },
     ]);
 
     assert.deepEqual(scan(['"\\', '""']), [
-      { type: 'atom', endIndex: 2 },
+      { type: TokenType.Atom, endIndex: 2 },
     ]);
 
     assert.deepEqual(scan(['"\\', '\\', '",']), [
-      { type: 'atom', endIndex: 1 },
-      { type: 'value-separator', endIndex: 2 },
+      { type: TokenType.Atom, endIndex: 1 },
+      { type: TokenType.ValueSeparator, endIndex: 2 },
     ]);
 
     assert.deepEqual(scan(['"\\\\', '"']), [
-      { type: 'atom', endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 1 },
     ]);
   });
 
   test('split in three', () => {
     const tokens = scan(['"', 'a', '"']);
     assert.deepEqual(tokens, [
-      { type: 'atom', endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 1 },
     ]);
   });
 
@@ -88,8 +88,8 @@ suite('json stream scanner', () => {
   test('one two', () => {
     const tokens = scan(['1 2']);
     assert.deepEqual(tokens, [
-      { type: 'atom', endIndex: 1 },
-      { type: 'atom', endIndex: 3 },
+      { type: TokenType.Atom, endIndex: 1 },
+      { type: TokenType.Atom, endIndex: 3 },
     ]);
   });
 });
@@ -108,7 +108,7 @@ suite('buffered json token stream', () => {
     stream.buffer();
 
     const tokens = await take(stream, 2);
-    assert.deepEqual(tokens, ['atom', 'atom']);
+    assert.deepEqual(tokens, [TokenType.Atom, TokenType.Atom]);
     assert.equal(stream.flush(), '"foo" "bar"');
   });
 
@@ -132,7 +132,7 @@ suite('buffered json token stream', () => {
     const stream = bufferedScan(generate(chunks));
 
     const tokens = await take(stream, 2);
-    assert.deepEqual(tokens, ['atom', 'atom']);
+    assert.deepEqual(tokens, [TokenType.Atom, TokenType.Atom]);
     assert.equal(stream.flush(), ' "bar"');
   });
 });

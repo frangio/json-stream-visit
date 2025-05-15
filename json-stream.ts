@@ -11,26 +11,27 @@ const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|($)))*(")
 const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|($)))*(")?/y;
 const JSON_NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
 
-export type JsonTokenType =
-  | 'begin-object'
-  | 'end-object'
-  | 'begin-array'
-  | 'end-array'
-  | 'value-separator'
-  | 'name-separator'
-  | 'atom'; // strings, numbers, booleans, null
+export const enum TokenType {
+  BeginObject,
+  EndObject,
+  BeginArray,
+  EndArray,
+  ValueSeparator,
+  NameSeparator,
+  Atom // strings, numbers, booleans, null
+}
 
-const JSON_TOKEN_TYPE_MAP: Record<string, JsonTokenType> = {
-  '{': 'begin-object',
-  '}': 'end-object',
-  '[': 'begin-array',
-  ']': 'end-array',
-  ',': 'value-separator',
-  ':': 'name-separator',
+const JSON_TOKEN_TYPE_MAP: Record<string, TokenType> = {
+  '{': TokenType.BeginObject,
+  '}': TokenType.EndObject,
+  '[': TokenType.BeginArray,
+  ']': TokenType.EndArray,
+  ',': TokenType.ValueSeparator,
+  ':': TokenType.NameSeparator,
 };
 
-export interface JsonToken {
-  type: JsonTokenType;
+export interface Token {
+  type: TokenType;
   endIndex: number;
 }
 
@@ -41,21 +42,21 @@ export interface JsonToken {
 // whole. As explained above, tokens are not exactly JSON tokens and must be
 // processed by a JSON parser to recognize lexical errors. Invoking the
 // tokenizer without a chunk signals the end of the stream.
-export function scanner(): (chunk?: string) => JsonToken[] {
+export function scanner(): (chunk?: string) => Token[] {
   // Will track the position of each chunk in the stream counting from 0.
   let chunkIndex = -1;
 
   // Will hold a token whose end boundary hasn't been seen yet, the regex that
   // must be used to match its continuation, and the number of characters that
   // must be skipped (used for escapes in strings).
-  let pendingToken: JsonToken | undefined;
+  let pendingToken: Token | undefined;
   let pendingSkip = 0;
   let pendingCont = JSON_STRING_CONT;
 
-  return function (chunk?: string): JsonToken[] {
+  return function (chunk?: string): Token[] {
     chunkIndex += 1;
 
-    let tokens: JsonToken[] = [];
+    let tokens: Token[] = [];
 
     if (chunk === undefined) {
       if (pendingToken !== undefined) {
@@ -105,10 +106,10 @@ export function scanner(): (chunk?: string) => JsonToken[] {
       }
 
       let symbol = chunk[startIndex]!;
-      let type = JSON_TOKEN_TYPE_MAP[symbol] ?? 'atom';
+      let type = JSON_TOKEN_TYPE_MAP[symbol] ?? TokenType.Atom;
       let token = { type, endIndex };
 
-      if (type === 'atom') {
+      if (type === TokenType.Atom) {
         // An atom prefix may continue in the next chunk if it's an unclosed
         // string or if it's an undelimited atom (like a number) at the end of
         // the chunk.
@@ -139,7 +140,7 @@ export function scanner(): (chunk?: string) => JsonToken[] {
   }
 }
 
-export interface BufferedJsonTokenStream extends AsyncIterableIterator<JsonTokenType> {
+export interface BufferedJsonTokenStream extends AsyncIterableIterator<TokenType> {
   buffer(): void;
   flush(): string;
 }
@@ -240,7 +241,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
     let state = stack.at(-1)!;
 
     if (state.id === VisitStateId.ArrayPostBegin) {
-      if (token === 'end-array') {
+      if (token === TokenType.EndArray) {
         state.id = VisitStateId.ArrayPreEnd;
       } else {
         state.id = VisitStateId.ArrayPostValue;
@@ -256,13 +257,13 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         }
 
         switch (token) {
-          case 'begin-object':
-          case 'begin-array':
+          case TokenType.BeginObject:
+          case TokenType.BeginArray:
             depth += 1;
             break;
 
-          case 'end-object':
-          case 'end-array':
+          case TokenType.EndObject:
+          case TokenType.EndArray:
             depth -= 1;
             if (depth < 0) throw Error('todo');
             break;
@@ -276,7 +277,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         break;
 
       case VisitStateId.ArrayPreBegin:
-        if (token !== 'begin-array') throw Error('todo');
+        if (token !== TokenType.BeginArray) throw Error('todo');
         stack.pop();
         stack.push({
           id: VisitStateId.ArrayPostBegin,
@@ -285,8 +286,8 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         break;
 
       case VisitStateId.ArrayPostValue:
-        if (token !== 'end-array') {
-          if (token !== 'value-separator') throw Error('todo');
+        if (token !== TokenType.EndArray) {
+          if (token !== TokenType.ValueSeparator) throw Error('todo');
           stack.push(state.value);
           break;
         }
@@ -298,19 +299,19 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         break;
 
       case VisitStateId.ObjectPreBegin:
-        if (token !== 'begin-object') throw Error('todo');
+        if (token !== TokenType.BeginObject) throw Error('todo');
         state.id = VisitStateId.ObjectPostBegin;
         break;
 
       case VisitStateId.ObjectPostBegin:
-        if (token === 'end-object') {
+        if (token === TokenType.EndObject) {
           stack.pop();
           break;
         }
         // Fall through
 
       case VisitStateId.ObjectPreKey: {
-        if (token !== 'atom') throw Error('todo');
+        if (token !== TokenType.Atom) throw Error('todo');
         state.id = VisitStateId.ObjectPostValue;
         let key: string = JSON.parse(tokens.flush());
         stack.push({
@@ -321,18 +322,18 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
       }
 
       case VisitStateId.ObjectPostKey:
-        if (token !== 'name-separator') throw Error('todo');
+        if (token !== TokenType.NameSeparator) throw Error('todo');
         stack.pop();
         stack.push(state.value);
         break;
 
       case VisitStateId.ObjectPostValue:
         switch (token) {
-          case 'end-object':
+          case TokenType.EndObject:
             stack.pop();
             break;
 
-          case 'value-separator':
+          case TokenType.ValueSeparator:
             state.id = VisitStateId.ObjectPreKey;
             break;
 
