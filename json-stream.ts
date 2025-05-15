@@ -217,7 +217,7 @@ type VisitState =
   | { id: VisitStateId.ObjectPostKey;
       value: VisitState; };
 
-function state_from_visitor(visitor: Visitor): VisitState {
+function stateFromVisitor(visitor: Visitor): VisitState {
   if (typeof visitor === 'function') {
     return { id: VisitStateId.ValueBuffering, value: visitor };
   } else if ('values' in visitor) {
@@ -230,7 +230,7 @@ function state_from_visitor(visitor: Visitor): VisitState {
 }
 
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
-  let stack: VisitState[] = [state_from_visitor(visitor)];
+  let stack: VisitState[] = [stateFromVisitor(visitor)];
   let depth = 0;
 
   let tokens = bufferedScan(stream);
@@ -281,7 +281,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         stack.pop();
         stack.push({
           id: VisitStateId.ArrayPostBegin,
-          value: state_from_visitor(state.value),
+          value: stateFromVisitor(state.value),
         });
         break;
 
@@ -316,7 +316,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         let key: string = JSON.parse(tokens.flush());
         stack.push({
           id: VisitStateId.ObjectPostKey,
-          value: state_from_visitor(state.value(key)),
+          value: stateFromVisitor(state.value(key)),
         });
         break;
       }
