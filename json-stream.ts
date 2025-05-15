@@ -6,9 +6,9 @@
 
 // Optional whitespace followed by a token prefix (possibly empty). An empty
 // group is used to capture the index where the token starts.
-const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|$))*"?|[^ \t\n\r{}\[\]:,"]*)/dy;
+const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|$))*(")?|[^ \t\n\r{}\[\]:,"]*)/dy;
 
-const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|$))*"?/y;
+const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|$))*(")?/y;
 const JSON_NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
 
 export type JsonTokenType =
@@ -75,18 +75,19 @@ export function scanner(): (chunk?: string) => JsonToken[] {
 
       pendingCont.lastIndex = pendingSkip;
 
-      pendingCont.exec(chunk);
+      let match = pendingCont.exec(chunk)!;
+      let stringClosed = match[1] !== undefined;
 
       let endIndex = pendingCont.lastIndex;
       let lastSymbol = endIndex > pendingSkip ? chunk[endIndex - 1] : undefined;
 
       pendingToken.endIndex = endIndex;
 
-      if (endIndex === chunk.length && lastSymbol !== '"') {
-        pendingSkip = lastSymbol === '\\' ? 1 : 0;
-      } else {
+      if (endIndex < chunk.length || stringClosed) {
         tokens.push(pendingToken);
         pendingToken = undefined;
+      } else {
+        pendingSkip = lastSymbol === '\\' ? 1 : 0;
       }
 
       JSON_TOKEN_PREFIX.lastIndex = endIndex;
@@ -112,11 +113,9 @@ export function scanner(): (chunk?: string) => JsonToken[] {
         // string or if it's an undelimited atom (like a number) at the end of
         // the chunk.
         if (symbol === '"') {
-          let lastSymbol = chunk[endIndex - 1]!;
-          // A quote symbol at the end of the match may be the opening quote if
-          // the match is a single character, in which case the token is not
-          // complete.
-          if (lastSymbol !== '"' || endIndex === startIndex + 1) {
+          let closed = match[2] !== undefined;
+          if (!closed) {
+            let lastSymbol = chunk[endIndex - 1]!;
             pendingToken = token;
             pendingSkip = lastSymbol === '\\' ? 1 : 0;
             pendingCont = JSON_STRING_CONT;
