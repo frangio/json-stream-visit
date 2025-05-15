@@ -1,0 +1,10 @@
+{
+  "lint": {
+    "rules": {
+      "exclude": ["prefer-const"]
+    }
+  },
+  "imports": {
+    "fast-check": "npm:fast-check@^4.1.1"
+  }
+}

@@ -188,9 +188,9 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
   return Object.assign(tokens, { buffer, flush });
 }
 
-type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
-type ValueVisitor = (value: unknown) => void;
-type ObjectVisitor = (key: string) => Visitor;
+export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
+export type ValueVisitor = (value: unknown) => void;
+export type ObjectVisitor = (key: string) => Visitor;
 
 const enum VisitStateId {
   ValueBuffering,

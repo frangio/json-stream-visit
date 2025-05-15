@@ -1,6 +1,7 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
-import { scanner, bufferedScan, visit, type JsonToken } from './json-stream.ts';
+import fc from 'fast-check';
+import { scanner, bufferedScan, visit, type JsonToken, type Visitor } from './json-stream.ts';
 
 function scan(chunks: string[]): JsonToken[] {
   let scan = scanner();
@@ -189,5 +190,70 @@ suite('json stream visitor', () => {
     await visit(generate([json]), { values: () => visitCount++ });
 
     assert.equal(visitCount, 0);
+  });
+
+  test('random visitor on well-shaped input', async () => {
+    type Shape =
+      | { type: 'value' }
+      | { type: 'array', values: Shape }
+      | { type: 'object', entries: Record<string, Shape> };
+
+    const { shape } = fc.letrec<Record<string, Shape>>((tie) => ({
+      value: fc.constant({ type: 'value' }),
+      array: tie('value').map(values => ({ type: 'array', values })),
+      object: fc.dictionary(fc.string(), tie('shape')).map(entries => ({ type: 'object', entries })),
+      shape: fc.oneof(tie('value'), tie('object'), tie('array')),
+    }));
+
+    function input(shape: Shape): fc.Arbitrary<unknown> {
+      switch (shape.type) {
+        case 'value': return fc.jsonValue();
+        case 'array': return fc.array(input(shape.values));
+        case 'object': return fc.record(
+          Object.fromEntries(
+            Object.entries(shape.entries).map(([key, subshape]) => [key, input(subshape)])
+          )
+        );
+      }
+    }
+
+    const scenario = shape.chain(shape => input(shape).map(input => ({ shape, input })));
+
+    const chunkSizes = fc.array(fc.integer({ min: 1 }));
+
+    function makeVisitor(shape: Shape): Visitor {
+      switch (shape.type) {
+        case 'value': return () => {};
+        case 'array': return { values: makeVisitor(shape.values) };
+        case 'object': {
+          let entries = Object.fromEntries(
+            Object.entries(shape.entries).map(([key, subshape]) => [key, makeVisitor(subshape)])
+          );
+          return { entries: key => entries[key] };
+        }
+      }
+    }
+
+    async function* chunkedStream(str: string, sizes: number[]): AsyncGenerator<string> {
+      if (sizes.length === 0) {
+        sizes = [str.length];
+      }
+
+      for (let sizeIndex = 0; str.length > 0; sizeIndex++) {
+        const size = sizes[sizeIndex % sizes.length];
+        const chunkSize = Math.min(size, str.length);
+        const chunk = str.substring(0, chunkSize);
+        yield chunk;
+        str = str.substring(chunkSize);
+      }
+    }
+
+    fc.assert(
+      fc.asyncProperty(scenario, chunkSizes, async ({ shape, input }, chunkSizes) => {
+        let visitor = makeVisitor(shape);
+        let stream = chunkedStream(JSON.stringify(input), chunkSizes);
+        await visit(stream, visitor);
+      })
+    );
   });
 });
