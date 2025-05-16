@@ -1,10 +1,22 @@
 {
+  "name": "json-stream-visit",
+  "version": "1.0.0",
+  "exports": "./src/index.ts",
+  "tasks": {
+    "npm:package.json": "deno run -A tasks/create-package-json.ts",
+    "npm:code": "deno run -A npm:esbuild --bundle --target=esnext --format=esm --outfile=npm/index.js src/index.ts",
+    "npm:types": "deno run -A npm:typescript/tsc --emitDeclarationOnly --declaration --target esnext --allowImportingTsExtensions --stripInternal --outFile npm/index.d.ts src/index.ts",
+    "npm": "rm -rf npm && deno task 'npm:*'"
+  },
   "lint": {
     "rules": {
       "exclude": ["prefer-const"]
     }
   },
   "imports": {
-    "fast-check": "npm:fast-check@^4.1.1"
+    "@std/path": "jsr:@std/path@^1.0.9",
+    "esbuild": "npm:esbuild@^0.25.4",
+    "fast-check": "npm:fast-check@^4.1.1",
+    "typescript": "npm:typescript@^5.8.3"
   }
 }

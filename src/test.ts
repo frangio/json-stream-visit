@@ -1,7 +1,7 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
-import { scanner, bufferedScan, visit, TokenType, type Token, type Visitor } from './json-stream.ts';
+import { scanner, bufferedScan, visit, TokenType, type Token, type Visitor } from './core.ts';
 
 function scan(chunks: string[]): Token[] {
   let scan = scanner();

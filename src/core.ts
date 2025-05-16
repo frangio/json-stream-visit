@@ -11,6 +11,7 @@ const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|($)))*(")
 const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|($)))*(")?/y;
 const JSON_NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
 
+/** @internal */
 export const enum TokenType {
   BeginObject,
   EndObject,
@@ -30,6 +31,7 @@ const JSON_TOKEN_TYPE_MAP: Record<string, TokenType> = {
   ':': TokenType.NameSeparator,
 };
 
+/** @internal */
 export interface Token {
   type: TokenType;
   endIndex: number;
@@ -42,6 +44,7 @@ export interface Token {
 // whole. As explained above, tokens are not exactly JSON tokens and must be
 // processed by a JSON parser to recognize lexical errors. Invoking the
 // tokenizer without a chunk signals the end of the stream.
+/** @internal */
 export function scanner(): (chunk?: string) => Token[] {
   // Will track the position of each chunk in the stream counting from 0.
   let chunkIndex = -1;
@@ -140,11 +143,13 @@ export function scanner(): (chunk?: string) => Token[] {
   };
 }
 
+/** @internal */
 export interface BufferedJsonTokenStream extends AsyncIterableIterator<TokenType> {
   buffer(): void;
   flush(): string;
 }
 
+/** @internal */
 export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenStream {
   let scan = scanner();
 
@@ -189,8 +194,8 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
 }
 
 export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
-export type ValueVisitor = (value: unknown) => void;
-export type ObjectVisitor =
+type ValueVisitor = (value: unknown) => void;
+type ObjectVisitor =
   | ((key: string) => (Visitor | undefined))
   | { [key in string]?: Visitor };
 
