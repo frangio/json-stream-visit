@@ -4,8 +4,8 @@
   "exports": "./src/index.ts",
   "tasks": {
     "npm:package.json": "deno run -A tasks/create-package-json.ts",
-    "npm:code": "deno run -A npm:esbuild --bundle --target=esnext --format=esm --outfile=npm/index.js src/index.ts",
-    "npm:types": "deno run -A npm:typescript/tsc --emitDeclarationOnly --declaration --target esnext --allowImportingTsExtensions --stripInternal --outFile npm/index.d.ts src/index.ts",
+    "npm:code": "deno run -A npm:esbuild --bundle --target=esnext --format=esm --outfile=dist/index.js --sourcemap src/index.ts",
+    "npm:types": "deno run -A npm:typescript/tsc --emitDeclarationOnly --declaration --declarationMap --target esnext --allowImportingTsExtensions --stripInternal --outFile dist/index.d.ts src/index.ts",
     "npm": "rm -rf npm && deno task 'npm:*'"
   },
   "lint": {

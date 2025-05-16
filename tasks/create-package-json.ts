@@ -15,14 +15,13 @@ const packageJson = {
     url: 'git+https://github.com/frangio/json-stream-visit.git'
   },
   type: 'module',
-  main: './index.js',
-  exports: './index.js',
-  types: './index.d.ts',
+  main: './dist/index.js',
+  exports: './dist/index.js',
+  types: './dist/index.d.ts',
   files: [
-    './index.js',
-    './index.d.ts'
+    './src/*.ts',
+    './dist/*.{js,d.ts}{,.map}',
   ]
 };
 
-Deno.mkdirSync('npm', { recursive: true });
-Deno.writeTextFileSync('npm/package.json', JSON.stringify(packageJson, null, 2));
+Deno.writeTextFileSync('package.json', JSON.stringify(packageJson, null, 2));
