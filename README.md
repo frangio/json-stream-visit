@@ -10,6 +10,15 @@ import { visit } from 'json-stream-visit';
 const response = await fetch('https://api.example.com/data');
 const responseBodyStream = response.body.pipeThrough(new TextDecoderStream());
 
+// Assuming response body looks like:
+// {
+//   "items": [
+//     { "id": "item1", "name": "foo", "data": {...} },
+//     { "id": "item2", "name": "bar", "data": {...} },
+//     ...
+//   ]
+// }
+
 await visit(responseBodyStream, {
   entries: {
     items: {
