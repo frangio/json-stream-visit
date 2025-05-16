@@ -1,6 +1,6 @@
 {
   "name": "json-stream-visit",
-  "version": "1.0.0-1",
+  "version": "1.0.0-2",
   "exports": "./src/index.ts",
   "tasks": {
     "npm:package.json": "deno run -A tasks/create-package-json.ts",
