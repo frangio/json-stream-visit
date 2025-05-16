@@ -205,15 +205,21 @@ const enum VisitStateId {
   ObjectPreKey,
 }
 
+// Start states can be reused when they appear in array visitors, so we
+// defensively use readonly properties to avoid bugs.
+type VisitStartState =
+  | { readonly id: VisitStateId.ValueBuffering; readonly value: ValueVisitor }
+  | { readonly id: VisitStateId.ArrayPreBegin; readonly value: Visitor }
+  | { readonly id: VisitStateId.ObjectPreBegin; readonly value: ObjectVisitor };
+
 type VisitState =
-  | { id: VisitStateId.ValueBuffering; value: ValueVisitor }
-  | { id: VisitStateId.ArrayPreBegin; value: Visitor }
+  | VisitStartState
   | {
       id:
         | VisitStateId.ArrayPostBegin
         | VisitStateId.ArrayPostValue
         | VisitStateId.ArrayPreEnd;
-      value: VisitState;
+      value: VisitStartState;
     }
   | {
       id:
@@ -223,9 +229,9 @@ type VisitState =
         | VisitStateId.ObjectPostValue;
       value: ObjectVisitor;
     }
-  | { id: VisitStateId.ObjectPostKey; value: VisitState };
+  | { id: VisitStateId.ObjectPostKey; value: VisitStartState };
 
-function stateFromVisitor(visitor: Visitor): VisitState {
+function stateFromVisitor(visitor: Visitor): VisitStartState {
   if (typeof visitor === 'function') {
     return { id: VisitStateId.ValueBuffering, value: visitor };
   } else if ('values' in visitor) {
@@ -308,7 +314,11 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
 
       case VisitStateId.ObjectPreBegin:
         if (token !== TokenType.BeginObject) throw Error('todo');
-        state.id = VisitStateId.ObjectPostBegin;
+        stack.pop();
+        stack.push({
+          id: VisitStateId.ObjectPostBegin,
+          value: state.value,
+        });
         break;
 
       case VisitStateId.ObjectPostBegin:

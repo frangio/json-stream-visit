@@ -175,6 +175,22 @@ suite('json stream visitor', () => {
     assert.deepEqual(visited, ['bar']);
   });
 
+  test('visit multiple objects in array', async () => {
+    const obj = [{ foo: 'bar' }, { foo: 'baz' }];
+    const json = JSON.stringify(obj);
+    const visited: unknown[] = [];
+
+    await visit(generate([json]), {
+      values: {
+        entries: () => {
+          return (value) => visited.push(value);
+        }
+      },
+    });
+
+    assert.deepEqual(visited, ['bar', 'baz']);
+  });
+
   test('visit empty object', async () => {
     const obj = {};
     const json = JSON.stringify(obj);
