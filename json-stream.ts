@@ -190,10 +190,11 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
 
 export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
 export type ValueVisitor = (value: unknown) => void;
-export type ObjectVisitor = (key: string) => Visitor;
+export type ObjectVisitor = (key: string) => (Visitor | undefined);
 
 const enum VisitStateId {
   ValueBuffering,
+  ValueSkipping,
   ArrayPreBegin,
   ArrayPostBegin,
   ArrayPostValue,
@@ -210,7 +211,8 @@ const enum VisitStateId {
 type VisitStartState =
   | { readonly id: VisitStateId.ValueBuffering; readonly value: ValueVisitor }
   | { readonly id: VisitStateId.ArrayPreBegin; readonly value: Visitor }
-  | { readonly id: VisitStateId.ObjectPreBegin; readonly value: ObjectVisitor };
+  | { readonly id: VisitStateId.ObjectPreBegin; readonly value: ObjectVisitor }
+  | { readonly id: VisitStateId.ValueSkipping; readonly value: undefined };
 
 type VisitState =
   | VisitStartState
@@ -269,7 +271,9 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         if (depth === 0) {
           tokens.buffer();
         }
+        // Fall through
 
+      case VisitStateId.ValueSkipping:
         switch (token) {
           case TokenType.BeginObject:
           case TokenType.BeginArray:
@@ -284,7 +288,9 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         }
 
         if (depth === 0) {
-          state.value(JSON.parse(tokens.flush()));
+          if (state.id === VisitStateId.ValueBuffering) {
+            state.value(JSON.parse(tokens.flush()));
+          }
           stack.pop();
         }
 
@@ -330,12 +336,20 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
 
       case VisitStateId.ObjectPreKey: {
         if (token !== TokenType.Atom) throw Error('todo');
-        state.id = VisitStateId.ObjectPostValue;
         let key: string = JSON.parse(tokens.flush());
-        stack.push({
-          id: VisitStateId.ObjectPostKey,
-          value: stateFromVisitor(state.value(key)),
-        });
+        let visitor = state.value(key);
+        state.id = VisitStateId.ObjectPostValue;
+        if (visitor === undefined) {
+          stack.push({
+            id: VisitStateId.ObjectPostKey,
+            value: { id: VisitStateId.ValueSkipping, value: undefined },
+          });
+        } else {
+          stack.push({
+            id: VisitStateId.ObjectPostKey,
+            value: stateFromVisitor(visitor),
+          });
+        }
         break;
       }
 

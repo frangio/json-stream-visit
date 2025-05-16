@@ -168,7 +168,6 @@ suite('json stream visitor', () => {
         if (key === 'foo') {
           return (value) => visited.push(value);
         }
-        return () => {}; // ignore other properties
       },
     });
 
@@ -176,14 +175,16 @@ suite('json stream visitor', () => {
   });
 
   test('visit multiple objects in array', async () => {
-    const obj = [{ foo: 'bar' }, { foo: 'baz' }];
+    const obj = [{ foo: 'bar', quux: 0 }, { foo: 'baz' }];
     const json = JSON.stringify(obj);
     const visited: unknown[] = [];
 
     await visit(generate([json]), {
       values: {
-        entries: () => {
-          return (value) => visited.push(value);
+        entries: (key) => {
+          if (key === 'foo') {
+            return (value) => visited.push(value);
+          }
         }
       },
     });
