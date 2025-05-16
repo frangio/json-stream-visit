@@ -158,7 +158,7 @@ suite('json stream visitor', () => {
     assert.deepEqual(visited, arr);
   });
 
-  test('visit property in object', async () => {
+  test('visit property in object via function entries', async () => {
     const obj = { foo: 'bar', baz: 42 };
     const json = JSON.stringify(obj);
     const visited: unknown[] = [];
@@ -174,6 +174,20 @@ suite('json stream visitor', () => {
     assert.deepEqual(visited, ['bar']);
   });
 
+  test('visit property in object via object entries', async () => {
+    const obj = { foo: 'bar', baz: 42 };
+    const json = JSON.stringify(obj);
+    const visited: unknown[] = [];
+
+    await visit(generate([json]), {
+      entries: {
+        foo(value) { visited.push(value); },
+      },
+    });
+
+    assert.deepEqual(visited, ['bar']);
+  });
+
   test('visit multiple objects in array', async () => {
     const obj = [{ foo: 'bar', quux: 0 }, { foo: 'baz' }];
     const json = JSON.stringify(obj);
@@ -181,10 +195,8 @@ suite('json stream visitor', () => {
 
     await visit(generate([json]), {
       values: {
-        entries: (key) => {
-          if (key === 'foo') {
-            return (value) => visited.push(value);
-          }
+        entries: {
+          foo(value) { visited.push(value); },
         }
       },
     });

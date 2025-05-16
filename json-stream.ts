@@ -190,7 +190,9 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
 
 export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
 export type ValueVisitor = (value: unknown) => void;
-export type ObjectVisitor = (key: string) => (Visitor | undefined);
+export type ObjectVisitor =
+  | ((key: string) => (Visitor | undefined))
+  | { [key in string]?: Visitor };
 
 const enum VisitStateId {
   ValueBuffering,
@@ -337,7 +339,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
       case VisitStateId.ObjectPreKey: {
         if (token !== TokenType.Atom) throw Error('todo');
         let key: string = JSON.parse(tokens.flush());
-        let visitor = state.value(key);
+        let visitor = typeof state.value === 'function' ? state.value(key) : state.value[key];
         state.id = VisitStateId.ObjectPostValue;
         if (visitor === undefined) {
           stack.push({
