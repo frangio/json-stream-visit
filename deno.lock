@@ -3,7 +3,10 @@
   "specifiers": {
     "jsr:@std/async@^1.0.13": "1.0.13",
     "jsr:@std/path@^1.0.9": "1.0.9",
+    "npm:@streamparser/json@0.0.22": "0.0.22",
     "npm:@types/node@*": "22.12.0",
+    "npm:JSONStream@1.3.5": "1.3.5",
+    "npm:bfj@9.1.2": "9.1.2",
     "npm:esbuild@*": "0.25.4",
     "npm:esbuild@~0.25.4": "0.25.4",
     "npm:fast-check@^4.1.1": "4.1.1",
@@ -144,11 +147,37 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
+    "@streamparser/json@0.0.22": {
+      "integrity": "sha512-b6gTSBjJ8G8SuO3Gbbj+zXbVx8NSs1EbpbMKpzGLWMdkR+98McH9bEjSz3+0mPJf68c5nxa3CrJHp5EQNXM6zQ=="
+    },
     "@types/node@22.12.0": {
       "integrity": "sha512-Fll2FZ1riMjNmlmJOdAyY5pUbkftXslB5DgEzlIuNaiWhXd00FhWxVC/r4yV/4wBb9JfImTu+jiSvXTkJ7F/gA==",
       "dependencies": [
         "undici-types"
       ]
+    },
+    "JSONStream@1.3.5": {
+      "integrity": "sha512-E+iruNOY8VV9s4JEbe1aNEm6MiszPRr/UfcHMz0TQh1BXSxHK+ASV1R6W4HpjBhSeS+54PIsAMCBmwD06LLsqQ==",
+      "dependencies": [
+        "jsonparse",
+        "through"
+      ],
+      "bin": true
+    },
+    "bfj@9.1.2": {
+      "integrity": "sha512-EetpSUewwznXQ7yRtxHCgE5RLZV718n9cOYXe5BlhYKuNs0UkidHaUOe6Jlgbf+viGTQeg8mYhm5Wr4c2AB3gA==",
+      "dependencies": [
+        "check-types",
+        "hoopy",
+        "jsonpath",
+        "tryer"
+      ]
+    },
+    "check-types@11.2.3": {
+      "integrity": "sha512-+67P1GkJRaxQD6PKK0Et9DhwQB+vGg3PM5+aavopCpZT1lj9jeqfvpgTLAWErNj8qApkkmXlu/Ug74kmhagkXg=="
+    },
+    "deep-is@0.1.4": {
+      "integrity": "sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ=="
     },
     "esbuild@0.25.4": {
       "integrity": "sha512-8pgjLUcUjcgDg+2Q4NYXnPbo/vncAY4UmyaCm0jZevERqCHZIaWwdJHkf8XQtu4AxSKCdvrUbT0XUr1IdZzI8Q==",
@@ -182,21 +211,113 @@
       "scripts": true,
       "bin": true
     },
+    "escodegen@1.14.3": {
+      "integrity": "sha512-qFcX0XJkdg+PB3xjZZG/wKSuT1PnQWx57+TVSjIMmILd2yC/6ByYElPwJnslDsuWuSAp4AwJGumarAAmJch5Kw==",
+      "dependencies": [
+        "esprima@4.0.1",
+        "estraverse",
+        "esutils",
+        "optionator"
+      ],
+      "optionalDependencies": [
+        "source-map"
+      ],
+      "bin": true
+    },
+    "esprima@1.2.2": {
+      "integrity": "sha512-+JpPZam9w5DuJ3Q67SqsMGtiHKENSMRVoxvArfJZK01/BfLEObtZ6orJa/MtoGNR/rfMgp5837T41PAmTwAv/A==",
+      "bin": true
+    },
+    "esprima@4.0.1": {
+      "integrity": "sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==",
+      "bin": true
+    },
+    "estraverse@4.3.0": {
+      "integrity": "sha512-39nnKffWz8xN1BU/2c79n9nB9HDzo0niYUqx6xyqUnyoAnQyyWpOTdZEeiCch8BBu515t4wp9ZmgVfVhn9EBpw=="
+    },
+    "esutils@2.0.3": {
+      "integrity": "sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g=="
+    },
     "fast-check@4.1.1": {
       "integrity": "sha512-8+yQYeNYqBfWem0Nmm7BUnh27wm+qwGvI0xln60c8RPM5rVekxZf/Ildng2GNBfjaG6utIebFmVBPlNtZlBLxg==",
       "dependencies": [
         "pure-rand"
       ]
     },
+    "fast-levenshtein@2.0.6": {
+      "integrity": "sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw=="
+    },
+    "hoopy@0.1.4": {
+      "integrity": "sha512-HRcs+2mr52W0K+x8RzcLzuPPmVIKMSv97RGHy0Ea9y/mpcaK+xTrjICA04KAHi4GRzxliNqNJEFYWHghy3rSfQ=="
+    },
+    "jsonparse@1.3.1": {
+      "integrity": "sha512-POQXvpdL69+CluYsillJ7SUhKvytYjW9vG/GKpnf+xP8UWgYEM/RaMzHHofbALDiKbbP1W8UEYmgGl39WkPZsg=="
+    },
+    "jsonpath@1.1.1": {
+      "integrity": "sha512-l6Cg7jRpixfbgoWgkrl77dgEj8RPvND0wMH6TwQmi9Qs4TFfS9u5cUFnbeKTwj5ga5Y3BTGGNI28k117LJ009w==",
+      "dependencies": [
+        "esprima@1.2.2",
+        "static-eval",
+        "underscore"
+      ]
+    },
+    "levn@0.3.0": {
+      "integrity": "sha512-0OO4y2iOHix2W6ujICbKIaEQXvFQHue65vUG3pb5EUomzPI90z9hsA1VsO/dbIIpC53J8gxM9Q4Oho0jrCM/yA==",
+      "dependencies": [
+        "prelude-ls",
+        "type-check"
+      ]
+    },
+    "optionator@0.8.3": {
+      "integrity": "sha512-+IW9pACdk3XWmmTXG8m3upGUJst5XRGzxMRjXzAuJ1XnIFNvfhjjIuYkDvysnPQ7qzqVzLt78BCruntqRhWQbA==",
+      "dependencies": [
+        "deep-is",
+        "fast-levenshtein",
+        "levn",
+        "prelude-ls",
+        "type-check",
+        "word-wrap"
+      ]
+    },
+    "prelude-ls@1.1.2": {
+      "integrity": "sha512-ESF23V4SKG6lVSGZgYNpbsiaAkdab6ZgOxe52p7+Kid3W3u3bxR4Vfd/o21dmN7jSt0IwgZ4v5MUd26FEtXE9w=="
+    },
     "pure-rand@7.0.1": {
       "integrity": "sha512-oTUZM/NAZS8p7ANR3SHh30kXB+zK2r2BPcEn/awJIbOvq82WoMN4p62AWWp3Hhw50G0xMsw1mhIBLqHw64EcNQ=="
+    },
+    "source-map@0.6.1": {
+      "integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="
+    },
+    "static-eval@2.0.2": {
+      "integrity": "sha512-N/D219Hcr2bPjLxPiV+TQE++Tsmrady7TqAJugLy7Xk1EumfDWS/f5dtBbkRCGE7wKKXuYockQoj8Rm2/pVKyg==",
+      "dependencies": [
+        "escodegen"
+      ]
+    },
+    "through@2.3.8": {
+      "integrity": "sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg=="
+    },
+    "tryer@1.0.1": {
+      "integrity": "sha512-c3zayb8/kWWpycWYg87P71E1S1ZL6b6IJxfb5fvsUgsf0S2MVGaDhDXXjDMpdCpfWXqptc+4mXwmiy1ypXqRAA=="
+    },
+    "type-check@0.3.2": {
+      "integrity": "sha512-ZCmOJdvOWDBYJlzAoFkC+Q0+bUyEOS1ltgp1MGU03fqHG+dbi9tBFU2Rd9QKiDZFAYrhPh2JUf7rZRIuHRKtOg==",
+      "dependencies": [
+        "prelude-ls"
+      ]
     },
     "typescript@5.8.3": {
       "integrity": "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==",
       "bin": true
     },
+    "underscore@1.12.1": {
+      "integrity": "sha512-hEQt0+ZLDVUMhebKxL4x1BTtDY7bavVofhZ9KZ4aI26X9SRaE+Y3m83XUL1UP2jn8ynjndwCCpEHdUG+9pP1Tw=="
+    },
     "undici-types@6.20.0": {
       "integrity": "sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg=="
+    },
+    "word-wrap@1.2.5": {
+      "integrity": "sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA=="
     }
   },
   "workspace": {
