@@ -6,10 +6,10 @@
 
 // Optional whitespace followed by a token prefix (possibly empty). An empty
 // group is used to capture the index where the token starts.
-const JSON_TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|($)))*(")?|[^ \t\n\r{}\[\]:,"]*)/dy;
+const TOKEN_PREFIX = /[ \t\n\r]*()(?:[{}\[\]:,]|"(?:[^\\"]|\\(?:.|($)))*(")?|[^ \t\n\r{}\[\]:,"]*)/dy;
 
-const JSON_STRING_CONT = /(?:[^\\"]|\\(?:.|($)))*(")?/y;
-const JSON_NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
+const STRING_CONT = /(?:[^\\"]|\\(?:.|($)))*(")?/y;
+const NS_ATOM_CONT = /[^ \t\n\r{}\[\]:,"]*/y; // non-string atom
 
 /** @internal */
 export const enum TokenType {
@@ -22,7 +22,7 @@ export const enum TokenType {
   Atom, // strings, numbers, booleans, null
 }
 
-const JSON_TOKEN_TYPE_MAP: Record<string, TokenType> = {
+const TOKEN_TYPE_MAP: Record<string, TokenType> = {
   '{': TokenType.BeginObject,
   '}': TokenType.EndObject,
   '[': TokenType.BeginArray,
@@ -54,7 +54,7 @@ export function scanner(): (chunk?: string) => Token[] {
   // must be skipped (used for escapes in strings).
   let pendingToken: Token | undefined;
   let pendingSkip = 0;
-  let pendingCont = JSON_STRING_CONT;
+  let pendingCont = STRING_CONT;
 
   return function (chunk?: string): Token[] {
     chunkIndex += 1;
@@ -69,7 +69,7 @@ export function scanner(): (chunk?: string) => Token[] {
       return tokens;
     }
 
-    JSON_TOKEN_PREFIX.lastIndex = 0;
+    TOKEN_PREFIX.lastIndex = 0;
 
     if (pendingToken !== undefined) {
       if (pendingSkip >= chunk.length) {
@@ -94,22 +94,22 @@ export function scanner(): (chunk?: string) => Token[] {
         pendingSkip = stringHangingEscape ? 1 : 0;
       }
 
-      JSON_TOKEN_PREFIX.lastIndex = endIndex;
+      TOKEN_PREFIX.lastIndex = endIndex;
     }
 
-    while (JSON_TOKEN_PREFIX.lastIndex < chunk.length) {
+    while (TOKEN_PREFIX.lastIndex < chunk.length) {
       // This match always succeeds because the token prefix may be empty.
-      let match = JSON_TOKEN_PREFIX.exec(chunk)!;
+      let match = TOKEN_PREFIX.exec(chunk)!;
 
       let [startIndex] = match.indices![1]!;
-      let endIndex = JSON_TOKEN_PREFIX.lastIndex;
+      let endIndex = TOKEN_PREFIX.lastIndex;
 
       if (startIndex === chunk.length) {
         break;
       }
 
       let symbol = chunk[startIndex]!;
-      let type = JSON_TOKEN_TYPE_MAP[symbol] ?? TokenType.Atom;
+      let type = TOKEN_TYPE_MAP[symbol] ?? TokenType.Atom;
       let token = { type, endIndex };
 
       if (type === TokenType.Atom) {
@@ -122,7 +122,7 @@ export function scanner(): (chunk?: string) => Token[] {
           if (!closed) {
             pendingToken = token;
             pendingSkip = hangingEscape ? 1 : 0;
-            pendingCont = JSON_STRING_CONT;
+            pendingCont = STRING_CONT;
             continue;
           }
         } else if (endIndex === chunk.length) {
@@ -130,7 +130,7 @@ export function scanner(): (chunk?: string) => Token[] {
           // complete.
           pendingToken = token;
           pendingSkip = 0;
-          pendingCont = JSON_NS_ATOM_CONT;
+          pendingCont = NS_ATOM_CONT;
           continue;
         }
         // Otherwise the token is complete.
