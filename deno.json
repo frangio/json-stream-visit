@@ -28,5 +28,6 @@
     "esbuild": "npm:esbuild@^0.25.4",
     "fast-check": "npm:fast-check@^4.1.1",
     "typescript": "npm:typescript@^5.8.3"
-  }
+  },
+  "nodeModulesDir": "none"
 }
