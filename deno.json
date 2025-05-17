@@ -1,7 +1,17 @@
 {
-  "name": "json-stream-visit",
+  "name": "@frangio/json-stream-visit",
   "version": "1.0.0-2",
+  "license": "MIT",
   "exports": "./src/index.ts",
+  "publish": {
+    "include": [
+      "README.md",
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/test.ts"
+    ]
+  },
   "tasks": {
     "npm:package.json": "deno run -A tasks/create-package-json.ts",
     "npm:code": "deno run -A npm:esbuild --bundle --target=esnext --format=esm --outfile=dist/index.js --sourcemap src/index.ts",
