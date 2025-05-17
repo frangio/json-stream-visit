@@ -20,7 +20,7 @@ const packageJson = {
   types: './dist/index.d.ts',
   files: [
     ...publish.include,
-    ...publish.exclude.map(e => '!' + e),
+    ...publish.exclude.map((e: string) => '!' + e),
     'dist/**/*.{js,d.ts}{,.map}',
   ]
 };
