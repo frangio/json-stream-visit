@@ -1,0 +1,21 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          cache: true
+      - run: deno check
+      - run: deno test
+
+      - run: deno install --node-modules-dir=manual
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --experimental-transform-types src/test.ts

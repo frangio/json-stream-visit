@@ -1,7 +1,6 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
-import { delay } from '@std/async';
 import { scanner, bufferedScan, visit, array, TokenType, type Token, type Visitor } from './core.ts';
 
 function scan(chunks: string[]): Token[] {
@@ -222,7 +221,7 @@ suite('json stream visitor', () => {
 
     await visit(generate([json]), {
       async a(x) {
-        await delay(0);
+        await new Promise(resolve => setTimeout(resolve, 0));
         log.push(x);
       },
       b(x) {
