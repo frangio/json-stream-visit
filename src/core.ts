@@ -276,11 +276,7 @@ const DEPTH_DELTA: Record<TokenType, 0 | 1 | -1> = {
   [TokenType.Atom]: 0
 };
 
-class SyntaxError extends Error {
-  constructor(message: string) {
-    super(message)
-  }
-}
+class SyntaxError extends Error {}
 
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
 export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
