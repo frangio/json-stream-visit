@@ -2,7 +2,7 @@ import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
 import { delay } from '@std/async';
-import { scanner, bufferedScan, visit, TokenType, type Token, type Visitor } from './core.ts';
+import { scanner, bufferedScan, visit, array, TokenType, type Token, type Visitor } from './core.ts';
 
 function scan(chunks: string[]): Token[] {
   let scan = scanner();
@@ -154,7 +154,9 @@ suite('json stream visitor', () => {
     const json = JSON.stringify(arr);
     const visited: unknown[] = [];
 
-    await visit(generate([json]), { values: (value) => visited.push(value) });
+    await visit(generate([json]), array(
+      (value) => visited.push(value),
+    ));
 
     assert.deepEqual(visited, arr);
   });
@@ -165,11 +167,7 @@ suite('json stream visitor', () => {
     const visited: unknown[] = [];
 
     await visit(generate([json]), {
-      entries: (key) => {
-        if (key === 'foo') {
-          return (value) => visited.push(value);
-        }
-      },
+      foo(value) { visited.push(value); },
     });
 
     assert.deepEqual(visited, ['bar']);
@@ -181,9 +179,7 @@ suite('json stream visitor', () => {
     const visited: unknown[] = [];
 
     await visit(generate([json]), {
-      entries: {
-        foo(value) { visited.push(value); },
-      },
+      foo(value) { visited.push(value); },
     });
 
     assert.deepEqual(visited, ['bar']);
@@ -194,13 +190,11 @@ suite('json stream visitor', () => {
     const json = JSON.stringify(obj);
     const visited: unknown[] = [];
 
-    await visit(generate([json]), {
-      values: {
-        entries: {
-          foo(value) { visited.push(value); },
-        }
-      },
-    });
+    await visit(generate([json]),
+      array({
+        foo(value) { visited.push(value); },
+      })
+    );
 
     assert.deepEqual(visited, ['bar', 'baz']);
   });
@@ -208,16 +202,7 @@ suite('json stream visitor', () => {
   test('visit empty object', async () => {
     const obj = {};
     const json = JSON.stringify(obj);
-    let visitCount = 0;
-
-    await visit(generate([json]), {
-      entries: () => {
-        visitCount++;
-        return () => {};
-      },
-    });
-
-    assert.equal(visitCount, 0);
+    await visit(generate([json]), {});
   });
 
   test('visit empty array', async () => {
@@ -225,7 +210,7 @@ suite('json stream visitor', () => {
     const json = JSON.stringify(arr);
     let visitCount = 0;
 
-    await visit(generate([json]), { values: () => visitCount++ });
+    await visit(generate([json]), array(() => visitCount++));
 
     assert.equal(visitCount, 0);
   });
@@ -236,23 +221,19 @@ suite('json stream visitor', () => {
     const log: unknown[] = [];
 
     await visit(generate([json]), {
-      entries: {
-        // If the promise returned from a's visitor is not awaited, it will not be
-        // included in the log array by the end of the whole visit.
-        async a(x) {
-          await delay(0);
-          log.push(x);
-        },
-        b(x) {
-          log.push(x);
-        },
+      async a(x) {
+        await delay(0);
+        log.push(x);
+      },
+      b(x) {
+        log.push(x);
       },
     });
 
     assert.deepEqual(log, ['a', 'b']);
   });
 
-  test('random visitor on well-shaped input', async () => {
+  test('random visitor on well-shaped input', () => {
     type Shape =
       | { type: 'value' }
       | { type: 'array'; values: Shape }
@@ -284,13 +265,10 @@ suite('json stream visitor', () => {
     function makeVisitor(shape: Shape): Visitor {
       switch (shape.type) {
         case 'value': return () => {};
-        case 'array': return { values: makeVisitor(shape.values) };
-        case 'object': {
-          let entries = Object.fromEntries(
-            Object.entries(shape.entries).map(([key, subshape]) => [key, makeVisitor(subshape)])
-          );
-          return { entries: key => entries[key] };
-        }
+        case 'array': return array(makeVisitor(shape.values));
+        case 'object': return Object.fromEntries(
+          Object.entries(shape.entries).map(([key, subshape]) => [key, makeVisitor(subshape)])
+        );
       }
     }
 

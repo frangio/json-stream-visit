@@ -1,1 +1,1 @@
-export { visit, type Visitor } from './core.ts';
+export { visit, array, type Visitor } from './core.ts';

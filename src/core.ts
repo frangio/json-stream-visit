@@ -193,11 +193,17 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
   return Object.assign(tokens, { buffer, flush });
 }
 
-export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
-type ValueVisitor = (value: unknown) => unknown;
-type ObjectVisitor =
-  | ((key: string) => (Visitor | undefined))
-  | { [key in string]?: Visitor };
+export const ARRAY_VISITOR = Symbol('Array Visitor');
+
+export type Visitor = ValueVisitor | ArrayVisitor | ObjectVisitor;
+
+export type ValueVisitor = (value: unknown) => unknown;
+export type ArrayVisitor = { [ARRAY_VISITOR]: Visitor };
+export type ObjectVisitor = { [key in string]?: Visitor };
+
+export function array(inner: Visitor): ArrayVisitor {
+  return { [ARRAY_VISITOR]: inner };
+}
 
 const enum VisitStateId {
   ValueBuffering,
@@ -243,12 +249,10 @@ type VisitState =
 function stateFromVisitor(visitor: Visitor): VisitStartState {
   if (typeof visitor === 'function') {
     return { id: VisitStateId.ValueBuffering, value: visitor };
-  } else if ('values' in visitor) {
-    return { id: VisitStateId.ArrayPreBegin, value: visitor.values };
-  } else if ('entries' in visitor) {
-    return { id: VisitStateId.ObjectPreBegin, value: visitor.entries };
+  } else if (ARRAY_VISITOR in visitor) {
+    return { id: VisitStateId.ArrayPreBegin, value: visitor[ARRAY_VISITOR] };
   } else {
-    throw Error('todo');
+    return { id: VisitStateId.ObjectPreBegin, value: visitor };
   }
 }
 
@@ -344,7 +348,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
       case VisitStateId.ObjectPreKey: {
         if (token !== TokenType.Atom) throw Error('todo');
         let key: string = JSON.parse(tokens.flush());
-        let visitor = typeof state.value === 'function' ? state.value(key) : state.value[key];
+        let visitor = state.value[key];
         state.id = VisitStateId.ObjectPostValue;
         if (visitor === undefined) {
           stack.push({
