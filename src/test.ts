@@ -1,6 +1,7 @@
 import { test, suite } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
+import { delay } from '@std/async';
 import { scanner, bufferedScan, visit, TokenType, type Token, type Visitor } from './core.ts';
 
 function scan(chunks: string[]): Token[] {
@@ -227,6 +228,28 @@ suite('json stream visitor', () => {
     await visit(generate([json]), { values: () => visitCount++ });
 
     assert.equal(visitCount, 0);
+  });
+
+  test('await visitor result', async () => {
+    const obj = { a: 'a', b: 'b' };
+    const json = JSON.stringify(obj);
+    const log: unknown[] = [];
+
+    await visit(generate([json]), {
+      entries: {
+        // If the promise returned from a's visitor is not awaited, it will not be
+        // included in the log array by the end of the whole visit.
+        async a(x) {
+          await delay(0);
+          log.push(x);
+        },
+        b(x) {
+          log.push(x);
+        },
+      },
+    });
+
+    assert.deepEqual(log, ['a', 'b']);
   });
 
   test('random visitor on well-shaped input', async () => {

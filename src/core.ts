@@ -194,7 +194,7 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
 }
 
 export type Visitor = ValueVisitor | { entries: ObjectVisitor } | { values: Visitor };
-type ValueVisitor = (value: unknown) => void;
+type ValueVisitor = (value: unknown) => unknown;
 type ObjectVisitor =
   | ((key: string) => (Visitor | undefined))
   | { [key in string]?: Visitor };
@@ -296,7 +296,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
 
         if (depth === 0) {
           if (state.id === VisitStateId.ValueBuffering) {
-            state.value(JSON.parse(tokens.flush()));
+            await state.value(JSON.parse(tokens.flush()));
           }
           stack.pop();
         }
