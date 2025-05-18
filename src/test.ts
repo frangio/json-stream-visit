@@ -233,6 +233,30 @@ suite('json stream visitor', () => {
     assert.deepEqual(log, ['a', 'b']);
   });
 
+  test('typed visitors', () => {
+    function _(s: AsyncIterable<string>) {
+      const value = () => {};
+
+      visit<string>(s, value);
+      // @ts-expect-error: object visitor on value
+      visit<string>(s, {});
+
+      visit<string[]>(s, array(value));
+      // @ts-expect-error: object visitor on array
+      visit<string[]>(s, {});
+      // @ts-expect-error: object visitor on value in array
+      visit<string[]>(s, array({}));
+
+      visit<{a: string}>(s, { a: value });
+      // @ts-expect-error: object visitor on value in object
+      visit<{a: string}>(s, { a: {} });
+      // @ts-expect-error: additional properties
+      visit<{a: string}>(s, { a: value, b: value });
+      // @ts-expect-error: array visitor on object
+      visit<{a: string}>(s, array(value));
+    }
+  });
+
   test('random visitor on well-shaped input', () => {
     type Shape =
       | { type: 'value' }

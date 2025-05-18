@@ -201,7 +201,17 @@ export type ValueVisitor = (value: unknown) => unknown;
 export type ArrayVisitor = { [ARRAY_VISITOR]: Visitor };
 export type ObjectVisitor = { [key in string]?: Visitor };
 
-export function array(inner: Visitor): ArrayVisitor {
+export type TypedVisitor<T> =
+  | ValueVisitor
+  | (T extends (infer U)[]
+    ? TypedArrayVisitor<TypedVisitor<U>>
+    : T extends Record<string, unknown>
+    ? { [k in keyof T]?: TypedVisitor<T[k]> }
+    : never);
+
+export type TypedArrayVisitor<V extends Visitor> = { [ARRAY_VISITOR]: V };
+
+export function array<const V extends Visitor>(inner: V): TypedArrayVisitor<V> {
   return { [ARRAY_VISITOR]: inner };
 }
 
@@ -256,6 +266,8 @@ function stateFromVisitor(visitor: Visitor): VisitStartState {
   }
 }
 
+export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
+export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
   let stack: VisitState[] = [stateFromVisitor(visitor)];
   let depth = 0;
