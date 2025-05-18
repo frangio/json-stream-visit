@@ -18,4 +18,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --experimental-transform-types src/test.ts
+      - run: node --experimental-transform-types --test-reporter=spec src/test.ts
