@@ -6,7 +6,7 @@ const denoJsonPath = path.join(root, 'deno.json');
 const { name, version, license, publish } = JSON.parse(Deno.readTextFileSync(denoJsonPath));
 
 const packageJson = {
-  name,
+  name: name.replace(/^@frangio\//, ''),
   version,
   description: 'Simple and efficient streaming JSON processor.',
   author: 'Francisco Giordano <fg@frang.io>',
