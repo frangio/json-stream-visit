@@ -276,6 +276,12 @@ const DEPTH_DELTA: Record<TokenType, 0 | 1 | -1> = {
   [TokenType.Atom]: 0
 };
 
+class SyntaxError extends Error {
+  constructor(message: string) {
+    super(message)
+  }
+}
+
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
 export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
@@ -315,13 +321,13 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
           }
           stack.pop();
         } else if (depth < 0) {
-          throw Error();
+          throw new SyntaxError('unbalanced delimiters');
         }
 
         break;
 
       case VisitStateId.ArrayPreBegin:
-        if (token !== TokenType.BeginArray) throw Error('todo');
+        if (token !== TokenType.BeginArray) throw new SyntaxError('expected array');
         stack.pop();
         stack.push({
           id: VisitStateId.ArrayPostBegin,
@@ -331,7 +337,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
 
       case VisitStateId.ArrayPostValue:
         if (token !== TokenType.EndArray) {
-          if (token !== TokenType.ValueSeparator) throw Error('todo');
+          if (token !== TokenType.ValueSeparator) throw Error('expected array end or comma');
           stack.push(state.value);
           break;
         }
@@ -343,7 +349,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         break;
 
       case VisitStateId.ObjectPreBegin:
-        if (token !== TokenType.BeginObject) throw Error('todo');
+        if (token !== TokenType.BeginObject) throw new SyntaxError('expected object');
         stack.pop();
         stack.push({
           id: VisitStateId.ObjectPostBegin,
@@ -359,7 +365,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         // Fall through
 
       case VisitStateId.ObjectPreKey: {
-        if (token !== TokenType.Atom) throw Error('todo');
+        if (token !== TokenType.Atom) throw new SyntaxError('expected string');
         let key: string = JSON.parse(tokens.flush());
         let visitor = state.value[key];
         state.id = VisitStateId.ObjectPostValue;
@@ -378,7 +384,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
       }
 
       case VisitStateId.ObjectPostKey:
-        if (token !== TokenType.NameSeparator) throw Error('todo');
+        if (token !== TokenType.NameSeparator) throw new SyntaxError('expected colon');
         stack.pop();
         stack.push(state.value);
         break;
@@ -394,7 +400,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
             break;
 
           default:
-            throw Error('todo');
+            throw Error('expected object end or comma');
         }
         break;
     }
