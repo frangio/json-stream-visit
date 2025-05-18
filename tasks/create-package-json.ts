@@ -1,6 +1,7 @@
 import * as path from '@std/path';
 
-const denoJsonPath = path.join(Deno.env.get('INIT_CWD'), 'deno.json');
+const root = Deno.env.get('INIT_CWD') ?? '.';
+const denoJsonPath = path.join(root, 'deno.json');
 
 const { name, version, license, publish } = JSON.parse(Deno.readTextFileSync(denoJsonPath));
 
