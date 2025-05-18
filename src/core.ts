@@ -266,6 +266,16 @@ function stateFromVisitor(visitor: Visitor): VisitStartState {
   }
 }
 
+const DEPTH_DELTA: Record<TokenType, 0 | 1 | -1> = {
+  [TokenType.BeginObject]: 1,
+  [TokenType.BeginArray]: 1,
+  [TokenType.EndObject]: -1,
+  [TokenType.EndArray]: -1,
+  [TokenType.ValueSeparator]: 0,
+  [TokenType.NameSeparator]: 0,
+  [TokenType.Atom]: 0
+};
+
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
 export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
@@ -297,24 +307,15 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
         // Fall through
 
       case VisitStateId.ValueSkipping:
-        switch (token) {
-          case TokenType.BeginObject:
-          case TokenType.BeginArray:
-            depth += 1;
-            break;
-
-          case TokenType.EndObject:
-          case TokenType.EndArray:
-            depth -= 1;
-            if (depth < 0) throw Error('todo');
-            break;
-        }
+        depth += DEPTH_DELTA[token];
 
         if (depth === 0) {
           if (state.id === VisitStateId.ValueBuffering) {
             await state.value(JSON.parse(tokens.flush()));
           }
           stack.pop();
+        } else if (depth < 0) {
+          throw Error();
         }
 
         break;
