@@ -348,7 +348,7 @@ export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Pr
  * This typed variant can ensure that the visitor is correct for the expected
  * type `T`. For example, `visit<{users: User[]}>(stream, { posts: ... })` will
  * not type. Visitor functions will nonetheless receive values of `unknown`
- * type, since no runtime type validation is performed on them. Used a typed
+ * type, since no runtime type validation is performed on them. Use a typed
  * schema validation library to generate `T` and use it (or a subcomponent of
  * it) inside the visitor function for type safety.
  */
