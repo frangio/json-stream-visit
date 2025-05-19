@@ -1,8 +1,18 @@
-// The tokens identified by the scanner are a generalization of JSON tokens that
-// includes atom-looking sequences such as `1.2.3`, `foo`, and `"\xZZ"`. Tokens
-// other than atoms are recognized exactly. This approximation is sufficient
-// because we're interested in detecting token boundaries and assume the atoms
-// will be processed by a full JSON parser that recognizes lexical errors.
+// The code is organized in three layers:
+// 1. Scanner
+// 2. Buffered Scanner
+// 3. Visitor
+
+// 1. SCANNER /////////////////////////////////////////////////////////////////
+
+// Identifies token boundaries and classifies token types across chunks.
+
+// The tokens identified by the scanner are a generalization of JSON tokens
+// that includes atom-looking sequences such as `1.2.3`, `foo`, and `"\xZZ"`.
+// Tokens other than atoms are recognized exactly. This approximation is
+// sufficient because we're interested in detecting token boundaries and assume
+// the atoms will be processed by a full JSON parser that recognizes lexical
+// errors.
 
 // Optional whitespace followed by a token prefix (possibly empty). An empty
 // group is used to capture the index where the token starts.
@@ -37,14 +47,21 @@ export interface Token {
   endIndex: number;
 }
 
-// Instantiates a streaming JSON tokenizer: a stateful function that processes
-// a chunk of JSON at a time and returns an array of the new tokens it's
-// recognized in the stream from the chunk. Some tokens may span multiple
-// chunks and will only be recognized and returned once they've been seen
-// whole. As explained above, tokens are not exactly JSON tokens and must be
-// processed by a JSON parser to recognize lexical errors. Invoking the
-// tokenizer without a chunk signals the end of the stream.
-/** @internal */
+/**
+ * Instantiates a streaming JSON tokenizer.
+ * 
+ * The tokenizer is a stateful function that processes a chunk of partial JSON
+ * at a time and returns an array of the newly recognized tokens. Some tokens
+ * may span multiple chunks and will only be recognized and returned once it's
+ * certain they're complete. Thus, it's necessary to signal the end of the
+ * stream by invoking the tokenizer with the `undefined` chunk. The `endIndex`
+ * property in the returned tokens is a position in the chunk of the call that
+ * returned them (except when `undefined`); it may be zero for atoms that began
+ * in the previous chunk. As explained above, atoms are not necessarily valid
+ * JSON, and must be processed by a JSON parser to recognize lexical errors.
+ *
+ * @internal
+ */
 export function scanner(): (chunk?: string) => Token[] {
   // Will track the position of each chunk in the stream counting from 0.
   let chunkIndex = -1;
@@ -143,9 +160,24 @@ export function scanner(): (chunk?: string) => Token[] {
   };
 }
 
-/** @internal */
+// 2. BUFFERED SCANNER ////////////////////////////////////////////////////////
+
+/**
+ * An async iterator of tokens recognized from a stream of JSON, extended with
+ * the ability to capture the contents of the stream delimited by two tokens.
+ *
+ * @internal
+ */
 export interface BufferedJsonTokenStream extends AsyncIterableIterator<TokenType> {
+  /**
+   * Begins to buffer the contents of the stream, including the last token that
+   * was yielded.
+   */
   buffer(): void;
+  /**
+   * Returns the contents of the buffer and stops buffering. The buffer will be
+   * cleared when the next token is yielded.
+   */
   flush(): string;
 }
 
@@ -193,25 +225,54 @@ export function bufferedScan(stream: AsyncIterable<string>): BufferedJsonTokenSt
   return Object.assign(tokens, { buffer, flush });
 }
 
-export const ARRAY_VISITOR = Symbol('Array Visitor');
+// 3. VISITOR /////////////////////////////////////////////////////////////////
 
-export type Visitor = ValueVisitor | ArrayVisitor | ObjectVisitor;
+const ARRAY_VISITOR = Symbol('Array Visitor');
 
-export type ValueVisitor = (value: unknown) => unknown;
-export type ArrayVisitor = { [ARRAY_VISITOR]: Visitor };
-export type ObjectVisitor = { [key in string]?: Visitor };
+/**
+ * Describes the expected structure of a JSON stream and how its parts should
+ * be processed.
+ * 
+ * As the JSON stream is received, the visitor is traversed in tandem. At each
+ * step the visitor determines what kinds of values are accepted. Other values
+ * result in an error being thrown.
+ * 
+ * 1. A function visitor accepts any kind of value, including objects and
+ * arrays. The value is parsed whole and the function is invoked with it. If
+ * the function returns a promise, it is awaited and no further values are
+ * processed until it resolves. Return values are otherwise ignored.
+ * 
+ * 2. An array visitor (created with {@link array}) accepts arrays and applies
+ * its inner visitor to every element. For example,
+ * `array(x => console.log(x))` will log each value in the array.
+ * 
+ * 3. An object visitor accepts an object and processes its key-value pairs.
+ * For each key, the corresponding visitor is selected from the object and
+ * applied to the value. Properties not specified in the visitor are ignored.
+ * For example, `{ users: array(u => users.push(u)) }` will populate an array
+ * with the users from a JSON object such as `{ "users": [{"id": ...}, ...] }`.
+ */
+export type Visitor =
+  | ((value: unknown) => unknown)
+  | { [ARRAY_VISITOR]: Visitor }
+  | { [key in string]?: Visitor };
+
+type ValueVisitor = (value: unknown) => unknown;
+type ObjectVisitor = { [key in string]?: Visitor };
 
 export type TypedVisitor<T> =
   | ValueVisitor
   | (T extends (infer U)[]
-    ? TypedArrayVisitor<TypedVisitor<U>>
+    ? { [ARRAY_VISITOR]: TypedVisitor<U> }
     : T extends Record<string, unknown>
     ? { [k in keyof T]?: TypedVisitor<T[k]> }
     : never);
 
-export type TypedArrayVisitor<V extends Visitor> = { [ARRAY_VISITOR]: V };
-
-export function array<const V extends Visitor>(inner: V): TypedArrayVisitor<V> {
+/**
+ * Creates a visitor that accepts an array and applies an inner visitor to
+ * every element.
+ */
+export function array<const V extends Visitor>(inner: V): { [ARRAY_VISITOR]: V } {
   return { [ARRAY_VISITOR]: inner };
 }
 
@@ -278,7 +339,18 @@ const DEPTH_DELTA: Record<TokenType, 0 | 1 | -1> = {
 
 class SyntaxError extends Error {}
 
+/**
+ * Incrementally parses a stream as JSON and processes it according to a
+ * {@link Visitor}.
+ */
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
+/**
+ * This typed variant can ensure that the visitor is correct for the expected
+ * type. Visitor functions will nonetheless receive values of `unknown` type,
+ * since no runtime type validation is performed on them. Used a typed schema
+ * validation library to generate `T` and use it (or a subcomponent of it)
+ * inside the visitor function for type safety.
+ */
 export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
   let stack: VisitState[] = [stateFromVisitor(visitor)];
