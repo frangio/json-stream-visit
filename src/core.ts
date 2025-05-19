@@ -346,10 +346,11 @@ class SyntaxError extends Error {}
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void>;
 /**
  * This typed variant can ensure that the visitor is correct for the expected
- * type. Visitor functions will nonetheless receive values of `unknown` type,
- * since no runtime type validation is performed on them. Used a typed schema
- * validation library to generate `T` and use it (or a subcomponent of it)
- * inside the visitor function for type safety.
+ * type `T`. For example, `visit<{users: User[]}>(stream, { posts: ... })` will
+ * not type. Visitor functions will nonetheless receive values of `unknown`
+ * type, since no runtime type validation is performed on them. Used a typed
+ * schema validation library to generate `T` and use it (or a subcomponent of
+ * it) inside the visitor function for type safety.
  */
 export async function visit<T>(stream: AsyncIterable<string>, visitor: TypedVisitor<T>): Promise<void>;
 export async function visit(stream: AsyncIterable<string>, visitor: Visitor): Promise<void> {
