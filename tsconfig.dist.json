@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": true,
+    "target": "esnext",
+    "module": "preserve",
+    "allowImportingTsExtensions": true,
+    "stripInternal": true,
+    "outDir": "dist"
+  },
+  "files": ["src/index.ts"]
+}

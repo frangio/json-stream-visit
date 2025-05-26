@@ -281,7 +281,7 @@ suite('json stream visitor', () => {
       }
     }
 
-    const scenario = shape.chain(shape => input(shape).map(input => ({ shape, input })));
+    const scenario = shape!.chain(shape => input(shape).map(input => ({ shape, input })));
 
     const chunkSizes = fc.array(fc.integer({ min: 1 }));
 
@@ -301,7 +301,7 @@ suite('json stream visitor', () => {
       }
 
       for (let sizeIndex = 0; str.length > 0; sizeIndex++) {
-        const size = sizes[sizeIndex % sizes.length];
+        const size = sizes[sizeIndex % sizes.length]!;
         const chunkSize = Math.min(size, str.length);
         const chunk = str.substring(0, chunkSize);
         yield chunk;
