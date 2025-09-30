@@ -13,7 +13,7 @@ const packageJson = {
   license,
   repository: {
     type: 'git',
-    url: 'git+https://github.com/frangio/json-stream-visit.git'
+    url: 'git+https://github.com/frangio/json-street.git'
   },
   type: 'module',
   main: './dist/index.js',

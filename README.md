@@ -1,22 +1,22 @@
-# json-stream-visit
+# json-street
 
 Simple and efficient streaming JSON processor.
 
 ```
-npm install json-stream-visit
+npm install json-street;
 ```
 
 Process JSON data incrementally without waiting for it to be fully received:
 
 ```typescript
-import * as jsonsv from 'json-stream-visit';
+import * as jsonst from 'json-street;
 
 const response = await fetch('https://api.example.com/data');
 const stream = response.body.pipeThrough(new TextDecoderStream());
 
 const items = [];
 
-await jsonsv.visit(stream, {
+await jsonst.visit(stream, {
   items: item => items.push(item),
 });
 
@@ -40,7 +40,7 @@ type Data = {
   }[];
 };
 
-await jsonsv.visit<Data>(stream, /* well-typed visitor */)
+await jsonst.visit<Data>(stream, /* well-typed visitor */)
 ```
 
 Use nested visitors to process complex schemas:
@@ -60,10 +60,10 @@ type User = {
 const titles = [];
 const comments = [];
 
-await jsonsv.visit<User>(stream, {
-  posts: jsonsv.array({
+await jsonst.visit<User>(stream, {
+  posts: jsonst.array({
     title: t => titles.push(t),
-    comments: jsonsv.array(c => comments.push(c)),
+    comments: jsonst.array(c => comments.push(c)),
   })
 });
 ```
